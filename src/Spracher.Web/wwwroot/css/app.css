@@ -46,58 +46,51 @@ textarea {
 .topbar {
     position: relative;
     z-index: 20;
-    border-bottom: 1px solid #35504a;
-    color: #f7f4ec;
-    background: #102722;
-    box-shadow: 0 0.35rem 1.5rem rgba(10, 28, 25, 0.16);
+    border-bottom: 1px solid #aaa79d;
+    color: #18332e;
+    background: rgba(235, 232, 223, 0.96);
+    backdrop-filter: blur(1rem);
 }
 
 .topbar-inner {
     display: flex;
     width: min(100% - 2rem, 76rem);
-    min-height: 5.5rem;
+    min-height: 4.75rem;
     align-items: stretch;
     justify-content: space-between;
-    gap: 2rem;
+    gap: 2.5rem;
     margin-inline: auto;
 }
 
 .brand {
     display: inline-flex;
     align-items: center;
-    gap: 0.7rem;
-    color: #f7f4ec;
-    font-size: 1.05rem;
-    font-weight: 750;
-    letter-spacing: -0.02em;
+    color: #18332e;
     text-decoration: none;
-}
-
-.brand-mark {
-    display: grid;
-    width: 2.2rem;
-    height: 2.2rem;
-    place-items: center;
-    border: 1px solid #d7ae5d;
-    border-radius: 0.15rem;
-    color: #102722;
-    background: #d7ae5d;
 }
 
 .brand-copy {
     display: grid;
-    gap: 0.05rem;
+    gap: 0.1rem;
 }
 
 .brand-copy strong {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.045em;
     line-height: 1.1;
 }
 
+.brand-copy strong span {
+    color: #a66925;
+}
+
 .brand-copy small {
-    color: #91aaa3;
-    font-size: 0.64rem;
+    color: #6c746f;
+    font-size: 0.59rem;
     font-weight: 700;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
 }
 
@@ -116,35 +109,21 @@ textarea {
     display: flex;
     align-items: stretch;
     justify-content: flex-end;
-    gap: 1.25rem;
-}
-
-.nav-section {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-}
-
-.nav-section + .nav-section {
-    padding-left: 1.25rem;
-    border-left: 1px solid #35504a;
-}
-
-.nav-section-label {
-    color: #829b94;
-    font-size: 0.61rem;
-    font-weight: 800;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
+    gap: 1.1rem;
 }
 
 .nav-links {
     display: flex;
     min-height: 100%;
     align-items: stretch;
-    gap: 0.15rem;
+    gap: 0.1rem;
+}
+
+.nav-divider {
+    width: 1px;
+    height: 1.5rem;
+    align-self: center;
+    background: #aaa79d;
 }
 
 .topnav a,
@@ -152,47 +131,47 @@ textarea {
     display: inline-flex;
     position: relative;
     align-items: center;
-    padding: 0.55rem 0.7rem;
+    padding: 0.55rem 0.65rem;
     border: 0;
     border-radius: 0;
-    color: #c9d6d2;
+    color: #46534f;
     background: transparent;
     cursor: pointer;
-    font-size: 0.88rem;
-    font-weight: 700;
+    font-size: 0.82rem;
+    font-weight: 750;
+    letter-spacing: 0.025em;
     text-decoration: none;
 }
 
 .topnav a:hover,
 .topnav button:hover {
-    color: #ffffff;
-    background: #193a33;
+    color: #142f2a;
+    background: rgba(24, 51, 46, 0.055);
 }
 
 .topnav a.active::after {
     position: absolute;
-    right: 0.7rem;
-    bottom: 0;
-    left: 0.7rem;
-    height: 0.18rem;
-    background: #d7ae5d;
+    right: 0.65rem;
+    bottom: -1px;
+    left: 0.65rem;
+    height: 0.14rem;
+    background: #18332e;
     content: "";
 }
 
 .topnav .nav-primary {
     align-self: center;
-    min-height: 2.55rem;
-    margin-left: 0.25rem;
-    border: 1px solid #d7ae5d;
-    border-radius: 0.15rem;
-    color: #102722;
-    background: #d7ae5d;
+    min-height: 2.45rem;
+    margin-left: 0.35rem;
+    border: 1px solid #18332e;
+    color: #f4f1e8;
+    background: #18332e;
 }
 
 .topnav .nav-primary:hover,
 .topnav .nav-primary.active {
-    color: #102722;
-    background: #e4c47f;
+    color: #ffffff;
+    background: #285249;
 }
 
 .main-content {
@@ -1231,56 +1210,46 @@ h1 {
         flex-direction: column;
         align-items: flex-start;
         gap: 0;
-        padding-top: 0.85rem;
+        padding-top: 0.7rem;
     }
 
     .brand {
-        padding-bottom: 0.85rem;
+        padding-bottom: 0.7rem;
     }
 
     .topnav {
         width: calc(100% + 2rem);
         justify-content: flex-start;
-        gap: 0;
+        gap: 0.35rem;
         margin-left: -1rem;
         overflow-x: auto;
-        border-top: 1px solid #35504a;
+        overflow-y: hidden;
+        border-top: 1px solid #c4c1b8;
         scrollbar-width: thin;
-        scrollbar-color: #48665f #102722;
-    }
-
-    .nav-section {
-        flex: 0 0 auto;
-        align-items: stretch;
-        gap: 0;
-        padding: 0.45rem 0.55rem 0;
-    }
-
-    .nav-section + .nav-section {
-        padding-left: 0.55rem;
-        border-left: 1px solid #35504a;
-    }
-
-    .nav-section-label {
-        padding-inline: 0.55rem;
-        writing-mode: initial;
-        transform: none;
+        scrollbar-color: #98958d #ebe8df;
     }
 
     .nav-links {
-        min-height: 3rem;
+        flex: 0 0 auto;
+        align-items: stretch;
+        min-height: 3.25rem;
     }
 
     .topnav a,
     .topnav button {
-        padding: 0.45rem 0.55rem 0.55rem;
-        font-size: 0.82rem;
+        padding: 0.45rem 0.65rem 0.55rem;
+        font-size: 0.8rem;
         white-space: nowrap;
     }
 
+    .nav-divider {
+        height: 1.25rem;
+        background: #aaa79d;
+    }
+
     .topnav .nav-primary {
-        min-height: 2.25rem;
-        margin-block: 0.15rem 0.4rem;
+        min-height: 2.35rem;
+        margin-block: 0.2rem 0.45rem;
     }
 }
 
