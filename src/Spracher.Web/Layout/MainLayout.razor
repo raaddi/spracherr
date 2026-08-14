@@ -8,42 +8,65 @@
     <header class="topbar">
         <div class="topbar-inner">
             <a class="brand" href="/" aria-label="Spracher — strona główna">
+                <span class="brand-symbol" aria-hidden="true">A</span>
                 <span class="brand-copy">
-                    <strong>Spracher<span aria-hidden="true">.</span></strong>
-                    <small>Learn every day</small>
+                    <strong>Spracher</strong>
+                    <small>Language learning</small>
                 </span>
             </a>
 
             <nav class="topnav" aria-label="Główna nawigacja">
-                <div class="nav-links nav-learning">
-                    <NavLink href="/" Match="NavLinkMatch.All">Start</NavLink>
-                    <NavLink href="/vocabulary" Match="NavLinkMatch.All">Słownictwo</NavLink>
-                    @if (SessionState.Session.IsAuthenticated)
-                    {
-                        <NavLink href="/vocabulary/manage" Match="NavLinkMatch.All">Mój słownik</NavLink>
-                        <NavLink href="/languages" Match="NavLinkMatch.All">Języki</NavLink>
-                    }
+                <div class="nav-group nav-learning">
+                    <span class="nav-group-label">Nauka</span>
+                    <div class="nav-links">
+                        <NavLink href="/" Match="NavLinkMatch.All">
+                            <NavigationIcon Name="home" />
+                            <span>Start</span>
+                        </NavLink>
+                        <NavLink href="/vocabulary" Match="NavLinkMatch.All">
+                            <NavigationIcon Name="book" />
+                            <span>Słownictwo</span>
+                        </NavLink>
+                        @if (SessionState.Session.IsAuthenticated)
+                        {
+                            <NavLink href="/vocabulary/manage" Match="NavLinkMatch.All">
+                                <NavigationIcon Name="collection" />
+                                <span>Mój słownik</span>
+                            </NavLink>
+                            <NavLink href="/languages" Match="NavLinkMatch.All">
+                                <NavigationIcon Name="language" />
+                                <span>Języki</span>
+                            </NavLink>
+                        }
+                    </div>
                 </div>
 
-                <span class="nav-divider" aria-hidden="true"></span>
-
-                <div class="nav-links nav-account">
-                    @if (SessionState.Session.IsAuthenticated)
-                    {
-                        <NavLink href="/profile" Match="NavLinkMatch.All">
-                            @SessionState.Session.User?.DisplayName
-                        </NavLink>
-                        <button type="button" disabled="@_isSigningOut" @onclick="SignOutAsync">
-                            Wyloguj
-                        </button>
-                    }
-                    else
-                    {
-                        <NavLink href="/login" Match="NavLinkMatch.All">Zaloguj</NavLink>
-                        <NavLink class="nav-primary" href="/register" Match="NavLinkMatch.All">
-                            Załóż konto
-                        </NavLink>
-                    }
+                <div class="nav-group nav-account">
+                    <span class="nav-group-label">Konto</span>
+                    <div class="nav-links">
+                        @if (SessionState.Session.IsAuthenticated)
+                        {
+                            <NavLink href="/profile" Match="NavLinkMatch.All">
+                                <NavigationIcon Name="user" />
+                                <span>@SessionState.Session.User?.DisplayName</span>
+                            </NavLink>
+                            <button type="button" disabled="@_isSigningOut" @onclick="SignOutAsync">
+                                <NavigationIcon Name="logout" />
+                                <span>Wyloguj</span>
+                            </button>
+                        }
+                        else
+                        {
+                            <NavLink href="/login" Match="NavLinkMatch.All">
+                                <NavigationIcon Name="login" />
+                                <span>Zaloguj</span>
+                            </NavLink>
+                            <NavLink class="nav-primary" href="/register" Match="NavLinkMatch.All">
+                                <NavigationIcon Name="register" />
+                                <span>Załóż konto</span>
+                            </NavLink>
+                        }
+                    </div>
                 </div>
             </nav>
         </div>
