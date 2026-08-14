@@ -491,6 +491,187 @@ h1 {
     background: #eef9f2;
 }
 
+.practice-page {
+    max-width: 58rem;
+    margin-inline: auto;
+}
+
+.practice-page > h1 {
+    max-width: none;
+    font-size: clamp(2.5rem, 8vw, 5rem);
+}
+
+.exercise-catalog {
+    display: grid;
+    gap: 1rem;
+}
+
+.exercise-catalog-card {
+    display: grid;
+    gap: 1.5rem;
+    align-items: end;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-left: 0.28rem solid #2d685c;
+    border-radius: var(--card-radius);
+    background: var(--surface);
+    box-shadow: 0 0.8rem 2.2rem rgba(23, 49, 45, 0.05);
+}
+
+.exercise-catalog-card h2,
+.exercise-player h2 {
+    margin: 0.4rem 0 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.55rem, 4vw, 2.2rem);
+    letter-spacing: -0.025em;
+}
+
+.exercise-catalog-card p {
+    margin: 0.7rem 0;
+    color: #526560;
+    line-height: 1.55;
+}
+
+.exercise-catalog-card small {
+    color: #6b746f;
+}
+
+.exercise-catalog-card .primary-button,
+.exercise-catalog-card .primary-link {
+    width: 100%;
+}
+
+.exercise-type {
+    color: #6a5b3d;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.exercise-player {
+    display: grid;
+    gap: 1.5rem;
+    max-width: 46rem;
+    padding: clamp(1.2rem, 4vw, 2rem);
+    border: 1px solid var(--border);
+    border-top: 0.3rem solid #2d685c;
+    border-radius: var(--card-radius);
+    background: var(--surface-strong);
+    box-shadow: 0 1rem 3rem rgba(23, 49, 45, 0.08);
+}
+
+.exercise-player-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #d0cdc5;
+}
+
+.exercise-progress {
+    flex: 0 0 auto;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid #b9c4bd;
+    color: #526560;
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.exercise-prompt {
+    margin: 0;
+    color: #17312d;
+    font-size: clamp(1.15rem, 3vw, 1.45rem);
+    font-weight: 750;
+    line-height: 1.45;
+}
+
+.exercise-options {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.exercise-option {
+    display: grid;
+    grid-template-columns: 1.15rem minmax(0, 1fr);
+    gap: 0.8rem;
+    align-items: center;
+    min-height: 3.5rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid #b9c4bd;
+    border-radius: var(--control-radius);
+    color: #2d413d;
+    background: #fffef9;
+    cursor: pointer;
+    font-weight: 650;
+    text-align: left;
+}
+
+.exercise-option:hover {
+    border-color: #6f8d84;
+    background: #f3f6f2;
+}
+
+.exercise-option.is-selected {
+    border-color: #2d685c;
+    color: #173f37;
+    background: #e3ebe6;
+    box-shadow: inset 0.22rem 0 #2d685c;
+}
+
+.exercise-option:disabled {
+    cursor: default;
+}
+
+.option-marker {
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid #83958f;
+    border-radius: 50%;
+    background: #fffef9;
+}
+
+.exercise-option.is-selected .option-marker {
+    border: 0.27rem solid #2d685c;
+}
+
+.exercise-result {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-left: 0.3rem solid;
+    background: #f1f0e9;
+}
+
+.exercise-result strong {
+    font-size: 1.05rem;
+}
+
+.exercise-result p {
+    margin: 0.35rem 0 0;
+    line-height: 1.5;
+}
+
+.exercise-result > span {
+    flex: 0 0 auto;
+    font-weight: 800;
+}
+
+.exercise-result.is-correct {
+    border-color: #2f8f63;
+    color: #18553b;
+    background: #eef9f2;
+}
+
+.exercise-result.is-incorrect {
+    border-color: #b84d40;
+    color: #7b2d24;
+    background: #fff0ee;
+}
+
 .language-grid {
     display: grid;
     gap: 1rem;
@@ -1184,6 +1365,16 @@ h1 {
 
     .form-card {
         padding: 1.6rem;
+    }
+
+    .exercise-catalog-card {
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding: 1.5rem;
+    }
+
+    .exercise-catalog-card .primary-button,
+    .exercise-catalog-card .primary-link {
+        width: auto;
     }
 
     .language-card {

@@ -1,6 +1,6 @@
 # Spracher
 
-Produkcyjnie projektowany SaaS do nauki języków, rozwijany jako modularny monolit na .NET 10. **Etapy 0 i 1 są ukończone, a funkcjonalny zakres Etapu 2 działa**. Vocabulary obejmuje katalog `Concept/LexemeSense/Lexeme`, wyszukiwanie, szczegóły słowa, prywatne słowa, statusy nauki, listy słówek i kategorie. Przed formalnym zamknięciem Etapu 2 pozostają pomiary zapytań na większym zbiorze; powtórki należą do Etapu 5.
+Produkcyjnie projektowany SaaS do nauki języków, rozwijany jako modularny monolit na .NET 10. **Etapy 0–2 są ukończone, a pierwszy pionowy slice Exercise Engine działa**. Vocabulary obejmuje katalog `Concept/LexemeSense/Lexeme`, prywatne słowa, statusy nauki, listy i kategorie. Ćwiczenia mają wersjonowane definicje, serwerowe ocenianie i pierwszy typ `MultipleChoice`; powtórki należą do Etapu 5.
 
 Decyzje architektoniczne znajdują się w [ARCHITECTURE.md](./ARCHITECTURE.md), a kolejność prac w [ROADMAP.md](./ROADMAP.md).
 
@@ -83,6 +83,14 @@ To narzędzie służy tylko do lokalnej pracy i testów. Restart API usuwa wiado
 Strona `/vocabulary` udostępnia publiczne wyszukiwanie katalogu oraz widok znaczeń, odpowiedników, form, wymowy i przykładów. Po zalogowaniu użytkownik może dodać konkretne znaczenie do swojego słownika, ustawić status `New`, `Learning`, `Learned` lub `Suspended` oraz utworzyć własny prywatny leksem z definicją. Ekran `/vocabulary/manage` służy do organizowania zapisanych znaczeń w prywatne listy i kategorie.
 
 Seed demonstracyjny English–Polish celowo jest mały. Słowo `bank` pokazuje dwa różne znaczenia połączone przez osobne `Concept`: instytucję finansową oraz brzeg rzeki. Masowy import danych nie jest częścią tego przyrostu.
+
+Pomiar wyszukiwania na kontrolowanych 10 000 leksemach oraz zastosowaną optymalizację indeksu opisuje [docs/performance/vocabulary-prefix-search.md](./docs/performance/vocabulary-prefix-search.md).
+
+## Exercise Engine — slice 3A
+
+Strona `/practice` pokazuje katalog opublikowanych ćwiczeń. Zalogowany użytkownik może rozpocząć próbę `MultipleChoice`, wybrać odpowiedź i otrzymać wynik oceniony przez backend. Próba jest przypięta do konkretnej `ExerciseVersion`, a publiczny payload celowo nie zawiera `correctOptionIds` ani feedbacku z definicji.
+
+Pierwszy slice nie zawiera jeszcze panelu autora, `ExerciseSet`, `FillInBlank` ani `Translation`. Te elementy będą dodawane jako kolejne pionowe przyrosty wspólnego lifecycle, bez tworzenia osobnych tabel prób dla każdego typu.
 
 ## Migracje
 

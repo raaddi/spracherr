@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Modules\Spracher.Modules.Exercises\Spracher.Modules.Exercises.csproj" />
     <ProjectReference Include="..\Modules\Spracher.Modules.IdentityAccess\Spracher.Modules.IdentityAccess.csproj" />
     <ProjectReference Include="..\Modules\Spracher.Modules.Languages\Spracher.Modules.Languages.csproj" />
     <ProjectReference Include="..\Modules\Spracher.Modules.Vocabulary\Spracher.Modules.Vocabulary.csproj" />

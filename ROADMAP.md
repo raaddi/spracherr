@@ -64,9 +64,9 @@ Kryterium ukończenia:
 
 ## Etap 2 — Vocabulary: pierwszy pionowy slice
 
-Status: **w toku — slice 2A i funkcjonalny slice 2B ukończone 2026-08-14**. Zaimplementowano model i schemat `Concept/LexemeSense/Lexeme`, mały seed English–Polish, wyszukiwanie i szczegóły, `UserVocabularyItem`, statusy, prywatny leksem, listy słówek, kategorie M:N, endpointy REST, responsywne widoki PWA, migracje oraz testy domenowe i integracyjne scenariusze własności. Pełny przepływ został dodatkowo sprawdzony lokalnie na PostgreSQL 17.
+Status: **ukończony 2026-08-14**. Zaimplementowano model i schemat `Concept/LexemeSense/Lexeme`, mały seed English–Polish, wyszukiwanie i szczegóły, `UserVocabularyItem`, statusy, prywatny leksem, listy słówek, kategorie M:N, endpointy REST, responsywne widoki PWA, migracje oraz testy domenowe i integracyjne scenariusze własności. Pełny przepływ został dodatkowo sprawdzony lokalnie na PostgreSQL 17.
 
-Do formalnego zamknięcia całego Etapu 2 pozostają podstawowe pomiary zapytań na większym, kontrolowanym zbiorze. Testy Testcontainers pozostają obowiązkowe w CI na maszynie z Dockerem. Powtórki i ich harmonogram pozostają w Etapie 5.
+Pomiar na kontrolowanym zbiorze 10 000 leksemów wykrył pełny skan dla wyszukiwania prefiksowego. Indeks został poprawiony przez `text_pattern_ops`; po zmianie plan używa `Index Scan`, a lokalny czas pierwszej strony spadł z 3,425 ms do 0,505 ms. Szczegóły są w `docs/performance/vocabulary-prefix-search.md`. Testy Testcontainers pozostają obowiązkowe w CI na maszynie z Dockerem. Powtórki i ich harmonogram pozostają w Etapie 5.
 
 Cel: potwierdzić model `Concept -> LexemeSense -> Lexeme` oraz prywatne słownictwo użytkownika.
 
@@ -91,6 +91,8 @@ Kryterium ukończenia:
 - model nie zawiera kolumn zależnych od konkretnych języków.
 
 ## Etap 3 — Exercise Engine
+
+Status: **w toku — slice 3A ukończony 2026-08-14**. Działa `ExerciseDefinition`, niemutowalna po publikacji `ExerciseVersion`, próba i zapis odpowiedzi, rejestr handlerów, wersjonowany `MultipleChoice`, bezpieczne DTO bez klucza odpowiedzi, serwerowe ocenianie, endpointy REST i ekran PWA `/practice`. Scenariusz katalog → rozpoczęcie → odpowiedź → wynik został sprawdzony na lokalnym PostgreSQL 17.
 
 Cel: jeden wspólny lifecycle ćwiczeń sprawdzony na kilku rzeczywiście różnych typach.
 
@@ -280,4 +282,4 @@ Zakres zależny od danych z produkcji:
 
 ## Następne zadanie implementacyjne
 
-Kolejne osobne zadanie powinno dotyczyć wyłącznie **Etapu 2 — Vocabulary: pierwszy pionowy slice**. Najpierw należy doprecyzować inwarianty `Concept`, `LexemeSense` i `Lexeme`, provenance oraz widoczność prywatnych danych. Nie rozpoczynamy jeszcze Exercise Engine ani Content Engine.
+Kolejne osobne zadanie powinno dotyczyć **Etapu 3B — wersjonowanie autorskie i `FillInBlank`**: utworzenie draftu, walidacja handlerem, publikacja nowej niezmiennej wersji, drugi renderer Blazor oraz test potwierdzający, że starsza próba nadal odtwarza wynik na starej wersji. `ExerciseSet`, `Translation` i Content Engine pozostają poza tym przyrostem.

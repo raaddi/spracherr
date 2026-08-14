@@ -27,6 +27,10 @@
                             <NavigationIcon Name="book" />
                             <span>Słownictwo</span>
                         </NavLink>
+                        <NavLink href="/practice" Match="NavLinkMatch.All">
+                            <NavigationIcon Name="practice" />
+                            <span>Ćwiczenia</span>
+                        </NavLink>
                         @if (SessionState.Session.IsAuthenticated)
                         {
                             <NavLink href="/vocabulary/manage" Match="NavLinkMatch.All">

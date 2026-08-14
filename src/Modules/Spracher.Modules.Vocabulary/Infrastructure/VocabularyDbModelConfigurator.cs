@@ -72,7 +72,8 @@ internal sealed class VocabularyDbModelConfigurator : IDbModelConfigurator
             entity.Property(lexeme => lexeme.SourceType).HasConversion<string>().HasMaxLength(20);
             entity.Property(lexeme => lexeme.SourceReference).HasMaxLength(200);
             entity.Property(lexeme => lexeme.PublicationStatus).HasConversion<string>().HasMaxLength(20);
-            entity.HasIndex(lexeme => new { lexeme.LanguageId, lexeme.NormalizedLemma });
+            entity.HasIndex(lexeme => new { lexeme.LanguageId, lexeme.NormalizedLemma })
+                .HasOperators("uuid_ops", "text_pattern_ops");
             entity.HasIndex(lexeme => new
             {
                 lexeme.LanguageId,

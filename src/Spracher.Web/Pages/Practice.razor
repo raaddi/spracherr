@@ -1,0 +1,266 @@
+@page "/practice"
+@using System.Text.Json
+@using Spracher.Contracts.Exercises
+@inject ExercisesApiClient ExercisesApiClient
+@inject AppSessionState SessionState
+
+<PageTitle>Ćwiczenia — Spracher</PageTitle>
+
+<section class="practice-page">
+    <p class="eyebrow">Pierwszy trening</p>
+    <h1>Ćwiczenia</h1>
+    <p class="form-intro">
+        Rozwiązuj zadania na konkretnej, zapisanej wersji. Odpowiedź ocenia backend — aplikacja nie wysyła do przeglądarki klucza odpowiedzi.
+    </p>
+
+    <ApiErrorSummary ErrorMessage="@_errorMessage" Errors="@_errors" />
+
+    @if (_isLoading)
+    {
+        <p role="status">Ładowanie ćwiczeń…</p>
+    }
+    else if (_catalog.Count == 0)
+    {
+        <div class="empty-state">
+            <h2>Brak opublikowanych ćwiczeń</h2>
+            <p>Pierwsze zadania pojawią się tutaj po publikacji.</p>
+        </div>
+    }
+    else if (_play is null)
+    {
+        <div class="exercise-catalog" aria-label="Dostępne ćwiczenia">
+            @foreach (var item in _catalog)
+            {
+                <article class="exercise-catalog-card">
+                    <div>
+                        <span class="exercise-type">@TypeLabel(item.TypeKey) · v@(item.VersionNumber)</span>
+                        <h2>@item.Title</h2>
+                        <p>@item.Description</p>
+                        <small>@item.Prompt</small>
+                    </div>
+
+                    @if (SessionState.Session.IsAuthenticated)
+                    {
+                        <button class="primary-button"
+                                type="button"
+                                disabled="@_isBusy"
+                                @onclick="() => StartAsync(item.DefinitionId)">
+                            @(_isBusy ? "Uruchamiam…" : "Rozpocznij")
+                        </button>
+                    }
+                    else
+                    {
+                        <a class="primary-link" href="/login">Zaloguj się i rozwiąż</a>
+                    }
+                </article>
+            }
+        </div>
+    }
+    else
+    {
+        <article class="exercise-player" aria-labelledby="exercise-title">
+            <header class="exercise-player-header">
+                <div>
+                    <span class="exercise-type">@TypeLabel(_play.TypeKey)</span>
+                    <h2 id="exercise-title">@_play.Title</h2>
+                </div>
+                <span class="exercise-progress">1 / 1</span>
+            </header>
+
+            <p class="exercise-prompt">@_play.Prompt</p>
+
+            <div class="exercise-options" role="group" aria-label="Możliwe odpowiedzi">
+                @foreach (var option in _options)
+                {
+                    <button class="exercise-option @(IsSelected(option.Id) ? "is-selected" : null)"
+                            type="button"
+                            disabled="@(_isBusy || _result is not null)"
+                            aria-pressed="@IsSelected(option.Id)"
+                            @onclick="() => SelectOption(option.Id)">
+                        <span class="option-marker" aria-hidden="true"></span>
+                        <span>@option.Text</span>
+                    </button>
+                }
+            </div>
+
+            @if (_result is not null)
+            {
+                <section class="exercise-result @(_result.IsCorrect ? "is-correct" : "is-incorrect")"
+                         aria-live="polite">
+                    <div>
+                        <strong>@(_result.IsCorrect ? "Dobrze!" : "Jeszcze nie tym razem")</strong>
+                        <p>@_result.Feedback</p>
+                    </div>
+                    <span>@_result.AwardedPoints / @_result.MaxPoints pkt</span>
+                </section>
+                <button class="primary-button" type="button" @onclick="ResetPlayer">
+                    Wróć do listy
+                </button>
+            }
+            else
+            {
+                <button class="primary-button"
+                        type="button"
+                        disabled="@(_isBusy || _selectedOptionIds.Count == 0)"
+                        @onclick="SubmitAsync">
+                    @(_isBusy ? "Sprawdzam…" : "Sprawdź odpowiedź")
+                </button>
+            }
+        </article>
+    }
+</section>
+
+@code {
+    private readonly List<ExerciseCatalogItemResponse> _catalog = [];
+    private readonly List<ExerciseOption> _options = [];
+    private readonly HashSet<string> _selectedOptionIds = new(StringComparer.Ordinal);
+    private IReadOnlyDictionary<string, string[]> _errors =
+        new Dictionary<string, string[]>();
+    private ExercisePlayResponse? _play;
+    private ExerciseResultResponse? _result;
+    private string? _errorMessage;
+    private bool _allowMultiple;
+    private bool _isLoading = true;
+    private bool _isBusy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await SessionState.InitializeAsync();
+        var result = await ExercisesApiClient.GetCatalogAsync();
+        if (result.Succeeded && result.Value is not null)
+        {
+            _catalog.AddRange(result.Value.Items);
+        }
+        else
+        {
+            SetError(result);
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task StartAsync(Guid definitionId)
+    {
+        ClearError();
+        _isBusy = true;
+        try
+        {
+            var result = await ExercisesApiClient.StartAttemptAsync(definitionId);
+            if (!result.Succeeded || result.Value is null)
+            {
+                SetError(result);
+                return;
+            }
+
+            _play = result.Value;
+            _result = null;
+            _selectedOptionIds.Clear();
+            ReadMultipleChoicePayload(_play.Payload);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_play is null || _selectedOptionIds.Count == 0)
+        {
+            return;
+        }
+
+        ClearError();
+        _isBusy = true;
+        try
+        {
+            var responseJson = JsonSerializer.Serialize(new
+            {
+                selectedOptionIds = _selectedOptionIds.Order(StringComparer.Ordinal).ToArray(),
+            });
+            using var document = JsonDocument.Parse(responseJson);
+            var result = await ExercisesApiClient.SubmitAttemptAsync(
+                _play.AttemptId,
+                new SubmitExerciseAttemptRequest(document.RootElement.Clone()));
+            if (result.Succeeded && result.Value is not null)
+            {
+                _result = result.Value;
+            }
+            else
+            {
+                SetError(result);
+            }
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void ReadMultipleChoicePayload(JsonElement payload)
+    {
+        _options.Clear();
+        if (payload.TryGetProperty("allowMultiple", out var allowMultiple))
+        {
+            _allowMultiple = allowMultiple.GetBoolean();
+        }
+
+        if (!payload.TryGetProperty("options", out var options))
+        {
+            return;
+        }
+
+        foreach (var option in options.EnumerateArray())
+        {
+            _options.Add(new ExerciseOption(
+                option.GetProperty("id").GetString() ?? string.Empty,
+                option.GetProperty("text").GetString() ?? string.Empty));
+        }
+    }
+
+    private void SelectOption(string optionId)
+    {
+        if (!_allowMultiple)
+        {
+            _selectedOptionIds.Clear();
+            _selectedOptionIds.Add(optionId);
+            return;
+        }
+
+        if (!_selectedOptionIds.Add(optionId))
+        {
+            _selectedOptionIds.Remove(optionId);
+        }
+    }
+
+    private bool IsSelected(string optionId) => _selectedOptionIds.Contains(optionId);
+
+    private void ResetPlayer()
+    {
+        _play = null;
+        _result = null;
+        _options.Clear();
+        _selectedOptionIds.Clear();
+        ClearError();
+    }
+
+    private void SetError<T>(ApiResult<T> result)
+    {
+        _errorMessage = result.ErrorMessage;
+        _errors = result.Errors;
+    }
+
+    private void ClearError()
+    {
+        _errorMessage = null;
+        _errors = new Dictionary<string, string[]>();
+    }
+
+    private static string TypeLabel(string typeKey) => typeKey switch
+    {
+        "multiple-choice" => "Wielokrotny wybór",
+        _ => typeKey,
+    };
+
+    private sealed record ExerciseOption(string Id, string Text);
+}

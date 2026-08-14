@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Spracher.Persistence;
@@ -11,9 +12,11 @@ using Spracher.Persistence;
 namespace Spracher.Persistence.Migrations
 {
     [DbContext(typeof(SpracherDbContext))]
-    partial class SpracherDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814214143_AddExerciseEngineFirstSlice")]
+    partial class AddExerciseEngineFirstSlice
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -932,8 +935,6 @@ namespace Spracher.Persistence.Migrations
                     b.HasIndex("FrequencyRank");
 
                     b.HasIndex("LanguageId", "NormalizedLemma");
-
-                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("LanguageId", "NormalizedLemma"), new[] { "uuid_ops", "text_pattern_ops" });
 
                     b.HasIndex("PublicationStatus", "CefrLevel");
 

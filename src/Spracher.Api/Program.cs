@@ -9,6 +9,7 @@ using Spracher.Api.Endpoints;
 using Spracher.Api.ErrorHandling;
 using Spracher.Api.Persistence;
 using Spracher.BuildingBlocks.Time;
+using Spracher.Modules.Exercises;
 using Spracher.Modules.IdentityAccess;
 using Spracher.Modules.Languages;
 using Spracher.Modules.Vocabulary;
@@ -51,6 +52,7 @@ builder.Services
     .AddSpracherIdentityStores();
 builder.Services.AddLanguagesModule();
 builder.Services.AddVocabularyModule();
+builder.Services.AddExercisesModule();
 builder.Services.AddCrossModuleDbModelConfiguration();
 builder.Services.AddSpracherPersistence(builder.Configuration);
 
@@ -132,6 +134,7 @@ app.MapSystemEndpoints();
 app.MapIdentityAccessEndpoints(app.Environment);
 app.MapLanguagesEndpoints();
 app.MapVocabularyEndpoints();
+app.MapExercisesEndpoints();
 
 app.Run();
 

@@ -23,6 +23,7 @@ builder.Services.AddScoped<JsonApiClient>();
 builder.Services.AddScoped<AuthApiClient>();
 builder.Services.AddScoped<LanguagesApiClient>();
 builder.Services.AddScoped<VocabularyApiClient>();
+builder.Services.AddScoped<ExercisesApiClient>();
 builder.Services.AddScoped<AppSessionState>();
 builder.Services.AddScoped<SystemApiClient>();
 

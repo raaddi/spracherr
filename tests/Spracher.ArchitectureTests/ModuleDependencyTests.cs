@@ -1,5 +1,6 @@
 using System.Reflection;
 using Spracher.IdentityModel;
+using Spracher.Modules.Exercises;
 using Spracher.Modules.IdentityAccess;
 using Spracher.Modules.Languages;
 using Spracher.Modules.Vocabulary;
@@ -12,6 +13,7 @@ public sealed class ModuleDependencyTests
     private static readonly Assembly[] ModuleAssemblies =
     [
         typeof(IdentityAccessModule).Assembly,
+        typeof(ExercisesModule).Assembly,
         typeof(LanguagesModule).Assembly,
         typeof(VocabularyModule).Assembly,
     ];

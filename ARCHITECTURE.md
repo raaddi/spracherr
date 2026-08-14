@@ -1,6 +1,6 @@
 # Spracher — architektura systemu
 
-Status dokumentu: **architektura bazowa przyjęta; implementacja ukończona do slice'u Vocabulary 2A**  
+Status dokumentu: **architektura bazowa przyjęta; Vocabulary ukończone, Exercise Engine 3A działa pionowo**
 Zakres: pierwsza wersja webowa/PWA oraz kierunek dalszego rozwoju SaaS  
 Docelowy stos: .NET 10, ASP.NET Core, Blazor WebAssembly PWA, EF Core, PostgreSQL, SignalR
 
@@ -286,12 +286,12 @@ Opublikowana rewizja jest niemutowalna. Zmiana tworzy kolejną wersję roboczą.
 
 | Encja | Odpowiedzialność |
 |---|---|
-| `ExerciseDefinition` | stabilna tożsamość ćwiczenia, właściciel i status |
-| `ExerciseVersion` | `TypeKey`, `SchemaVersion`, polecenie, typowany payload JSONB, zasady oceniania, wersja publikacji |
+| `ExerciseDefinition` | stabilna tożsamość ćwiczenia, `TypeKey`, metadane i archiwizacja |
+| `ExerciseVersion` | numer wersji, `SchemaVersion`, polecenie, typowany payload JSONB, status i data publikacji |
 | `ExerciseSet` | uporządkowana grupa przypiętych wersji ćwiczeń |
 | `ExerciseSetItem` | M:N z kolejnością, wagą i opcjonalnymi warunkami |
 | `ExerciseAttempt` | użytkownik, przypięta wersja, sesja, rozpoczęcie/zakończenie, wynik i status |
-| `ExerciseResponse` | odpowiedź użytkownika w wersjonowanym payloadzie, wynik oceny i bezpieczny feedback |
+| `ExerciseSubmission` | odpowiedź użytkownika w wersjonowanym payloadzie, wynik oceny i bezpieczny feedback |
 
 Silnik używa rejestru handlerów, np. `IExerciseTypeHandler`, rozdzielonego na:
 
@@ -305,6 +305,8 @@ Silnik używa rejestru handlerów, np. `IExerciseTypeHandler`, rozdzielonego na:
 Dodanie nowego rodzaju zwykle wymaga nowego handlera i komponentu UI, ale nie nowego systemu prób, postępu ani testów. Nie próbujemy sprowadzić wszystkich odpowiedzi do stringa. `MultipleChoice`, `FillInBlank`, `Translation`, `SentenceOrdering` itd. mają własne wersjonowane schematy payloadu. `Writing` i `Speaking` mogą zwracać stan `PendingReview`, ponieważ nie zawsze da się je uczciwie ocenić automatycznie.
 
 Klucze odpowiedzi nigdy nie trafiają do publicznego DTO. Próba wiąże się z dokładną `ExerciseVersion`, nie z „najnowszą wersją”.
+
+Slice 3A implementuje tabele `ExerciseDefinitions`, `ExerciseVersions`, `ExerciseAttempts` i `ExerciseSubmissions`, handler `MultipleChoice`, publiczny katalog, chronione rozpoczęcie i wysłanie próby oraz renderer Blazor pod `/practice`. `ExerciseSet`, workflow autorskiego publikowania i kolejne typy są świadomie pozostawione na następne przyrosty. Definicja odpowiedzi poprawnej pozostaje wyłącznie w serwerowym JSONB; publiczny payload zawiera tylko dane potrzebne rendererowi.
 
 Docelowy katalog typów i jego etapowanie:
 

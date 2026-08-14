@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
 using Spracher.Api.IntegrationTests.Infrastructure;
+using Spracher.Contracts.Exercises;
 using Spracher.Contracts.Identity;
 using Spracher.Contracts.Languages;
 using Spracher.Contracts.Vocabulary;
@@ -173,6 +175,43 @@ public sealed class IdentityAndLanguagesFlowTests(PostgresWebApplicationFactory 
             Assert.IsType<VocabularyCategoriesResponse>(categories).Items,
             item => item.Id == category.Id
                     && item.AssignedUserVocabularyItemIds.Contains(addedItem.Id));
+
+        var exerciseCatalog = await client.GetFromJsonAsync<ExerciseCatalogResponse>(
+            "/api/v1/exercises/");
+        var exercise = Assert.Single(
+            Assert.IsType<ExerciseCatalogResponse>(exerciseCatalog).Items);
+        Assert.Equal("multiple-choice", exercise.TypeKey);
+
+        var startAttempt = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercises/{exercise.DefinitionId}/attempts",
+            new { });
+        Assert.Equal(HttpStatusCode.OK, startAttempt.StatusCode);
+        var play = await startAttempt.Content.ReadFromJsonAsync<ExercisePlayResponse>();
+        Assert.NotNull(play);
+        Assert.False(play.Payload.TryGetProperty("correctOptionIds", out _));
+
+        using var answerDocument = JsonDocument.Parse(
+            """{ "selectedOptionIds": ["works"], "awardedPoints": 999 }""");
+        var submitAttempt = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-attempts/{play.AttemptId}/submit",
+            new SubmitExerciseAttemptRequest(answerDocument.RootElement.Clone()));
+        Assert.Equal(HttpStatusCode.OK, submitAttempt.StatusCode);
+        var exerciseResult = await submitAttempt.Content
+            .ReadFromJsonAsync<ExerciseResultResponse>();
+        Assert.True(exerciseResult?.IsCorrect);
+        Assert.Equal(10, exerciseResult?.AwardedPoints);
+        Assert.Equal(play.ExerciseVersionId, exerciseResult?.ExerciseVersionId);
+
+        var repeatedSubmission = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-attempts/{play.AttemptId}/submit",
+            new SubmitExerciseAttemptRequest(answerDocument.RootElement.Clone()));
+        Assert.Equal(HttpStatusCode.Conflict, repeatedSubmission.StatusCode);
 
         using var missingTokenRequest = JsonContent.Create(new UpdateProfileRequest("No CSRF", "UTC"));
         using var rejected = await client.PutAsync("/api/v1/profile/", missingTokenRequest);
