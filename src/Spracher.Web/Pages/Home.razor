@@ -1,0 +1,82 @@
+@page "/"
+@inject SystemApiClient SystemApiClient
+
+<PageTitle>Spracher</PageTitle>
+
+<section class="hero" aria-labelledby="page-title">
+    <p class="eyebrow">Language learning platform</p>
+    <h1 id="page-title">Ucz się języków w swoim rytmie.</h1>
+    <p class="hero-copy">
+        Załóż konto, wybierz języki i przygotuj swój profil do pierwszych lekcji.
+    </p>
+</section>
+
+<div class="hero-actions">
+    <a class="primary-link" href="/register">Zacznij bezpłatnie</a>
+    <a class="text-link" href="/login">Mam już konto</a>
+</div>
+
+<section class="status-card" aria-live="polite" aria-busy="@_isLoading">
+    <div>
+        <p class="status-label">Połączenie z API</p>
+        @if (_isLoading)
+        {
+            <p class="status-value status-pending">Sprawdzanie…</p>
+        }
+        else if (_systemInfo is not null)
+        {
+            <p class="status-value status-ok">Działa</p>
+            <p class="status-detail">
+                @_systemInfo.Name · @_systemInfo.ApiVersion · @_systemInfo.Environment
+            </p>
+        }
+        else
+        {
+            <p class="status-value status-error">Niedostępne</p>
+            <p class="status-detail">@_errorMessage</p>
+        }
+    </div>
+
+    @if (!_isLoading && _systemInfo is null)
+    {
+        <button class="retry-button" type="button" @onclick="LoadSystemInfoAsync">
+            Spróbuj ponownie
+        </button>
+    }
+</section>
+
+@code {
+    private Spracher.Contracts.System.SystemInfoResponse? _systemInfo;
+    private string? _errorMessage;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSystemInfoAsync();
+    }
+
+    private async Task LoadSystemInfoAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _systemInfo = await SystemApiClient.GetSystemInfoAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _systemInfo = null;
+            _errorMessage = "Nie udało się połączyć z backendem.";
+        }
+        catch (TaskCanceledException)
+        {
+            _systemInfo = null;
+            _errorMessage = "Backend nie odpowiedział na czas.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

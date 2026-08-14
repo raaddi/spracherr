@@ -1,0 +1,575 @@
+@page "/vocabulary/manage"
+@inject VocabularyApiClient VocabularyApiClient
+@inject AppSessionState SessionState
+
+<PageTitle>Mój słownik — Spracher</PageTitle>
+
+<section class="manage-vocabulary-page">
+    <p class="eyebrow">Organizacja nauki</p>
+    <h1>Mój słownik</h1>
+    <p class="form-intro">
+        Grupuj znaczenia w listy, oznaczaj je kategoriami i aktualizuj postęp w jednym miejscu.
+    </p>
+
+    <ApiErrorSummary ErrorMessage="@_errorMessage" Errors="@_errors" />
+
+    @if (_isLoading)
+    {
+        <p role="status">Ładowanie słownika…</p>
+    }
+    else if (!SessionState.Session.IsAuthenticated)
+    {
+        <div class="alert alert-error" role="alert">Zaloguj się, aby zarządzać słownikiem.</div>
+        <a class="primary-link" href="/login">Zaloguj się</a>
+    }
+    else
+    {
+        <div class="manage-summary">
+            <article>
+                <strong>@_userVocabulary.Count</strong>
+                <span>znaczeń</span>
+            </article>
+            <article>
+                <strong>@_lists.Count</strong>
+                <span>list</span>
+            </article>
+            <article>
+                <strong>@_categories.Count</strong>
+                <span>kategorii</span>
+            </article>
+        </div>
+
+        <div class="manage-vocabulary-grid">
+            <section class="manage-panel" aria-labelledby="words-title">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Postęp</p>
+                        <h2 id="words-title">Znaczenia</h2>
+                    </div>
+                    <a class="secondary-link" href="/vocabulary">Dodaj z katalogu</a>
+                </div>
+
+                @if (_userVocabulary.Count == 0)
+                {
+                    <div class="empty-state manage-empty">
+                        <p>Twój słownik jest pusty.</p>
+                        <a class="primary-link" href="/vocabulary">Otwórz katalog</a>
+                    </div>
+                }
+                else
+                {
+                    <div class="managed-word-list">
+                        @foreach (var item in _userVocabulary)
+                        {
+                            <article class="managed-word-card">
+                                <div class="managed-word-heading">
+                                    <div>
+                                        <span class="language-code">@item.LanguageCode</span>
+                                        <h3>@item.Lemma</h3>
+                                    </div>
+                                    <select value="@item.Status"
+                                            disabled="@_isMutating"
+                                            @onchange="args => ChangeStatusAsync(item.Id, args.Value?.ToString())"
+                                            aria-label="Status słowa @item.Lemma">
+                                        @foreach (var status in VocabularyStatuses)
+                                        {
+                                            <option value="@status">@StatusLabel(status)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <p>@item.Definition</p>
+
+                                @if (_categories.Count > 0)
+                                {
+                                    <div class="category-checks" aria-label="Kategorie słowa @item.Lemma">
+                                        @foreach (var category in _categories)
+                                        {
+                                            <label style="--category-color: @category.Color">
+                                                <input type="checkbox"
+                                                       checked="@IsAssigned(category, item.Id)"
+                                                       disabled="@_isMutating"
+                                                       @onchange="args => ToggleCategoryAsync(item.Id, category.Id, args.Value is true)" />
+                                                <span>@category.Name</span>
+                                            </label>
+                                        }
+                                    </div>
+                                }
+
+                                @if (_selectedList is not null)
+                                {
+                                    <button class="secondary-button"
+                                            type="button"
+                                            disabled="@(_isMutating || IsInSelectedList(item.Id))"
+                                            @onclick="() => AddToSelectedListAsync(item.Id)">
+                                        @(IsInSelectedList(item.Id) ? $"Na liście „{_selectedList.Name}”" : $"Dodaj do „{_selectedList.Name}”")
+                                    </button>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
+            </section>
+
+            <aside class="manage-side-column">
+                <section class="manage-panel" aria-labelledby="lists-title">
+                    <p class="eyebrow">Zestawy</p>
+                    <h2 id="lists-title">Listy słówek</h2>
+
+                    <div class="compact-create-form">
+                        <label>
+                            <span>Nazwa nowej listy</span>
+                            <input @bind="_newListName" maxlength="100" placeholder="np. Podróże" />
+                        </label>
+                        <label>
+                            <span>Opis <small>(opcjonalny)</small></span>
+                            <input @bind="_newListDescription" maxlength="500" />
+                        </label>
+                        <button class="primary-button" type="button" disabled="@_isMutating" @onclick="CreateListAsync">
+                            Utwórz listę
+                        </button>
+                    </div>
+
+                    @if (_lists.Count > 0)
+                    {
+                        <div class="list-tabs" role="tablist" aria-label="Listy słówek">
+                            @foreach (var list in _lists)
+                            {
+                                <button type="button"
+                                        role="tab"
+                                        aria-selected="@(list.Id == _selectedList?.Id)"
+                                        class="@(list.Id == _selectedList?.Id ? "is-selected" : null)"
+                                        @onclick="() => SelectListAsync(list.Id)">
+                                    <span>@list.Name</span>
+                                    <small>@list.ItemCount</small>
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    @if (_selectedList is not null)
+                    {
+                        <div class="selected-list-details">
+                            <h3>@_selectedList.Name</h3>
+                            @if (!string.IsNullOrWhiteSpace(_selectedList.Description))
+                            {
+                                <p>@_selectedList.Description</p>
+                            }
+
+                            @if (_selectedList.Items.Count == 0)
+                            {
+                                <p class="empty-state">Dodaj znaczenia z lewej strony.</p>
+                            }
+                            else
+                            {
+                                <ol>
+                                    @foreach (var item in _selectedList.Items)
+                                    {
+                                        <li>
+                                            <span><strong>@item.Lemma</strong> <small>@item.LanguageCode</small></span>
+                                            <button type="button"
+                                                    disabled="@_isMutating"
+                                                    aria-label="Usuń @item.Lemma z listy"
+                                                    @onclick="() => RemoveFromSelectedListAsync(item.UserVocabularyItemId)">
+                                                Usuń
+                                            </button>
+                                        </li>
+                                    }
+                                </ol>
+                            }
+                        </div>
+                    }
+                </section>
+
+                <section class="manage-panel" aria-labelledby="categories-title">
+                    <p class="eyebrow">Etykiety</p>
+                    <h2 id="categories-title">Kategorie</h2>
+
+                    <div class="category-create-form">
+                        <label>
+                            <span>Nazwa</span>
+                            <input @bind="_newCategoryName" maxlength="60" placeholder="np. Trudne" />
+                        </label>
+                        <label>
+                            <span>Kolor</span>
+                            <input type="color" @bind="_newCategoryColor" />
+                        </label>
+                        <button class="primary-button" type="button" disabled="@_isMutating" @onclick="CreateCategoryAsync">
+                            Dodaj kategorię
+                        </button>
+                    </div>
+
+                    @if (_categories.Count > 0)
+                    {
+                        <div class="category-overview">
+                            @foreach (var category in _categories)
+                            {
+                                <span style="--category-color: @category.Color">
+                                    @category.Name
+                                    <small>@category.AssignedUserVocabularyItemIds.Count</small>
+                                </span>
+                            }
+                        </div>
+                    }
+                </section>
+            </aside>
+        </div>
+    }
+</section>
+
+@code {
+    private static readonly string[] VocabularyStatuses = ["New", "Learning", "Learned", "Suspended"];
+
+    private readonly List<UserVocabularyItemResponse> _userVocabulary = [];
+    private readonly List<VocabularyListSummaryResponse> _lists = [];
+    private readonly List<VocabularyCategoryResponse> _categories = [];
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private VocabularyListDetailsResponse? _selectedList;
+    private string _newListName = string.Empty;
+    private string? _newListDescription;
+    private string _newCategoryName = string.Empty;
+    private string _newCategoryColor = "#2F8F63";
+    private string? _errorMessage;
+    private bool _isLoading = true;
+    private bool _isMutating;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await SessionState.InitializeAsync();
+            if (SessionState.Session.IsAuthenticated)
+            {
+                await LoadAsync();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się połączyć z API.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        var vocabularyTask = VocabularyApiClient.GetUserVocabularyAsync(pageSize: 50);
+        var listsTask = VocabularyApiClient.GetListsAsync();
+        var categoriesTask = VocabularyApiClient.GetCategoriesAsync();
+        await Task.WhenAll(vocabularyTask, listsTask, categoriesTask);
+
+        var vocabulary = await vocabularyTask;
+        var lists = await listsTask;
+        var categories = await categoriesTask;
+        if (!vocabulary.Succeeded || vocabulary.Value is null)
+        {
+            ApplyError(vocabulary);
+            return;
+        }
+
+        if (!lists.Succeeded || lists.Value is null)
+        {
+            ApplyError(lists);
+            return;
+        }
+
+        if (!categories.Succeeded || categories.Value is null)
+        {
+            ApplyError(categories);
+            return;
+        }
+
+        _userVocabulary.AddRange(vocabulary.Value.Items);
+        _lists.AddRange(lists.Value.Items);
+        _categories.AddRange(categories.Value.Items);
+        if (_lists.Count > 0)
+        {
+            await SelectListAsync(_lists[0].Id);
+        }
+    }
+
+    private async Task CreateListAsync()
+    {
+        _isMutating = true;
+        ClearError();
+        try
+        {
+            var result = await VocabularyApiClient.CreateListAsync(
+                new CreateVocabularyListRequest(_newListName, _newListDescription));
+            if (result.Succeeded && result.Value is not null)
+            {
+                _selectedList = result.Value;
+                _newListName = string.Empty;
+                _newListDescription = null;
+                await ReloadListsAsync();
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się utworzyć listy.";
+        }
+        finally
+        {
+            _isMutating = false;
+        }
+    }
+
+    private async Task SelectListAsync(Guid listId)
+    {
+        ClearError();
+        var result = await VocabularyApiClient.GetListAsync(listId);
+        if (result.Succeeded)
+        {
+            _selectedList = result.Value;
+        }
+        else
+        {
+            ApplyError(result);
+        }
+    }
+
+    private async Task AddToSelectedListAsync(Guid userVocabularyItemId)
+    {
+        if (_selectedList is null)
+        {
+            return;
+        }
+
+        _isMutating = true;
+        ClearError();
+        try
+        {
+            var result = await VocabularyApiClient.AddToListAsync(
+                _selectedList.Id,
+                new AddVocabularyListItemRequest(userVocabularyItemId, null));
+            if (result.Succeeded && result.Value is not null)
+            {
+                _selectedList = result.Value;
+                await ReloadListsAsync();
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się dodać znaczenia do listy.";
+        }
+        finally
+        {
+            _isMutating = false;
+        }
+    }
+
+    private async Task RemoveFromSelectedListAsync(Guid userVocabularyItemId)
+    {
+        if (_selectedList is null)
+        {
+            return;
+        }
+
+        _isMutating = true;
+        ClearError();
+        try
+        {
+            var result = await VocabularyApiClient.RemoveFromListAsync(
+                _selectedList.Id,
+                userVocabularyItemId);
+            if (result.Succeeded)
+            {
+                await SelectListAsync(_selectedList.Id);
+                await ReloadListsAsync();
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się usunąć znaczenia z listy.";
+        }
+        finally
+        {
+            _isMutating = false;
+        }
+    }
+
+    private async Task CreateCategoryAsync()
+    {
+        _isMutating = true;
+        ClearError();
+        try
+        {
+            var result = await VocabularyApiClient.CreateCategoryAsync(
+                new CreateVocabularyCategoryRequest(_newCategoryName, _newCategoryColor));
+            if (result.Succeeded && result.Value is not null)
+            {
+                _categories.Add(result.Value);
+                _categories.Sort((left, right) => string.Compare(
+                    left.Name,
+                    right.Name,
+                    StringComparison.CurrentCultureIgnoreCase));
+                _newCategoryName = string.Empty;
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się utworzyć kategorii.";
+        }
+        finally
+        {
+            _isMutating = false;
+        }
+    }
+
+    private async Task ToggleCategoryAsync(
+        Guid userVocabularyItemId,
+        Guid categoryId,
+        bool isAssigned)
+    {
+        _isMutating = true;
+        ClearError();
+        try
+        {
+            var categoryIds = _categories
+                .Where(category => category.Id == categoryId
+                    ? isAssigned
+                    : IsAssigned(category, userVocabularyItemId))
+                .Select(category => category.Id)
+                .ToArray();
+            var result = await VocabularyApiClient.AssignCategoriesAsync(
+                userVocabularyItemId,
+                categoryIds);
+            if (result.Succeeded)
+            {
+                for (var index = 0; index < _categories.Count; index++)
+                {
+                    var category = _categories[index];
+                    var assignedIds = category.AssignedUserVocabularyItemIds
+                        .Where(itemId => itemId != userVocabularyItemId)
+                        .ToList();
+                    if (categoryIds.Contains(category.Id))
+                    {
+                        assignedIds.Add(userVocabularyItemId);
+                    }
+
+                    _categories[index] = category with
+                    {
+                        AssignedUserVocabularyItemIds = assignedIds,
+                    };
+                }
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się przypisać kategorii.";
+        }
+        finally
+        {
+            _isMutating = false;
+        }
+    }
+
+    private async Task ChangeStatusAsync(Guid itemId, string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return;
+        }
+
+        _isMutating = true;
+        ClearError();
+        try
+        {
+            var result = await VocabularyApiClient.UpdateStatusAsync(itemId, status);
+            if (result.Succeeded && result.Value is not null)
+            {
+                var index = _userVocabulary.FindIndex(item => item.Id == itemId);
+                if (index >= 0)
+                {
+                    _userVocabulary[index] = result.Value;
+                }
+
+                if (_selectedList is not null)
+                {
+                    await SelectListAsync(_selectedList.Id);
+                }
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się zmienić statusu.";
+        }
+        finally
+        {
+            _isMutating = false;
+        }
+    }
+
+    private async Task ReloadListsAsync()
+    {
+        var selectedId = _selectedList?.Id;
+        var result = await VocabularyApiClient.GetListsAsync();
+        if (result.Succeeded && result.Value is not null)
+        {
+            _lists.Clear();
+            _lists.AddRange(result.Value.Items);
+            if (selectedId.HasValue && _selectedList?.Id != selectedId.Value)
+            {
+                await SelectListAsync(selectedId.Value);
+            }
+        }
+        else
+        {
+            ApplyError(result);
+        }
+    }
+
+    private bool IsInSelectedList(Guid userVocabularyItemId) =>
+        _selectedList?.Items.Any(item => item.UserVocabularyItemId == userVocabularyItemId) == true;
+
+    private static bool IsAssigned(
+        VocabularyCategoryResponse category,
+        Guid userVocabularyItemId) =>
+        category.AssignedUserVocabularyItemIds.Contains(userVocabularyItemId);
+
+    private void ApplyError<T>(ApiResult<T> result)
+    {
+        _errorMessage = result.ErrorMessage;
+        _errors = result.Errors;
+    }
+
+    private void ClearError()
+    {
+        _errorMessage = null;
+        _errors = new Dictionary<string, string[]>();
+    }
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "New" => "Nowe",
+        "Learning" => "Uczę się",
+        "Learned" => "Nauczone",
+        "Suspended" => "Wstrzymane",
+        _ => status,
+    };
+}

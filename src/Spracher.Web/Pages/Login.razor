@@ -1,0 +1,89 @@
+@page "/login"
+@inject AuthApiClient AuthApiClient
+@inject AppSessionState SessionState
+@inject NavigationManager Navigation
+
+<PageTitle>Logowanie — Spracher</PageTitle>
+
+<section class="form-page">
+    <p class="eyebrow">Twoje konto</p>
+    <h1>Zaloguj się</h1>
+    <p class="form-intro">Wróć do swoich języków i postępów.</p>
+
+    <ApiErrorSummary ErrorMessage="@_errorMessage" Errors="@_errors" />
+
+    <EditForm Model="@_model" OnValidSubmit="SubmitAsync" FormName="login" class="form-card">
+        <DataAnnotationsValidator />
+        <div class="field">
+            <label for="login-email">E-mail</label>
+            <InputText id="login-email" type="email" autocomplete="email" @bind-Value="_model.Email" />
+            <ValidationMessage For="@(() => _model.Email)" />
+        </div>
+        <div class="field">
+            <label for="login-password">Hasło</label>
+            <InputText id="login-password" type="password" autocomplete="current-password" @bind-Value="_model.Password" />
+            <ValidationMessage For="@(() => _model.Password)" />
+        </div>
+        <label class="check-row">
+            <InputCheckbox @bind-Value="_model.RememberMe" />
+            <span>Zapamiętaj mnie</span>
+        </label>
+        <button class="primary-button" type="submit" disabled="@_isSubmitting">
+            @(_isSubmitting ? "Logowanie…" : "Zaloguj się")
+        </button>
+    </EditForm>
+
+    <div class="form-links">
+        <a href="/forgot-password">Nie pamiętasz hasła?</a>
+        <a href="/resend-confirmation">Wyślij ponownie potwierdzenie</a>
+        <a href="/register">Nie masz konta? Zarejestruj się</a>
+    </div>
+</section>
+
+@code {
+    private readonly LoginModel _model = new();
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private string? _errorMessage;
+    private bool _isSubmitting;
+
+    private async Task SubmitAsync()
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+        _errors = new Dictionary<string, string[]>();
+        try
+        {
+            var result = await AuthApiClient.LoginAsync(
+                new LoginRequest(_model.Email, _model.Password, _model.RememberMe));
+            if (result.Succeeded && result.Value is not null)
+            {
+                SessionState.Set(result.Value);
+                Navigation.NavigateTo("/languages");
+                return;
+            }
+
+            _errorMessage = result.ErrorMessage;
+            _errors = result.Errors;
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się połączyć z API.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private sealed class LoginModel
+    {
+        [Required(ErrorMessage = "Podaj adres e-mail.")]
+        [EmailAddress(ErrorMessage = "Podaj poprawny adres e-mail.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Podaj hasło.")]
+        public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; }
+    }
+}

@@ -1,0 +1,193 @@
+@page "/languages"
+@inject LanguagesApiClient LanguagesApiClient
+@inject AppSessionState SessionState
+
+<PageTitle>Moje języki — Spracher</PageTitle>
+
+<section class="languages-page">
+    <p class="eyebrow">Profil językowy</p>
+    <h1>Moje języki</h1>
+    <p class="form-intro">Wybierz języki ojczyste i co najmniej jeden język, którego się uczysz.</p>
+
+    @if (_isLoading)
+    {
+        <p role="status">Ładowanie języków…</p>
+    }
+    else if (!SessionState.Session.IsAuthenticated)
+    {
+        <div class="alert alert-error" role="alert">Zaloguj się, aby skonfigurować języki.</div>
+        <a class="primary-link" href="/login">Zaloguj się</a>
+    }
+    else
+    {
+        @if (_saved)
+        {
+            <div class="alert alert-success" role="status">Profil językowy został zapisany.</div>
+        }
+        <ApiErrorSummary ErrorMessage="@_errorMessage" Errors="@_errors" />
+
+        <div class="language-grid">
+            @foreach (var language in _languages)
+            {
+                <article class="language-card">
+                    <div>
+                        <span class="language-code">@language.Code</span>
+                        <h2>@language.NativeName</h2>
+                        <p>@language.Name</p>
+                    </div>
+                    <div class="language-options">
+                        <label class="check-row">
+                            <InputCheckbox @bind-Value="language.IsNative" />
+                            <span>Język ojczysty</span>
+                        </label>
+                        <label class="check-row">
+                            <InputCheckbox @bind-Value="language.IsLearning" />
+                            <span>Uczę się</span>
+                        </label>
+                        @if (language.IsLearning && !string.IsNullOrWhiteSpace(language.CurrentCefrLevel))
+                        {
+                            <span class="cefr-badge">Poziom @language.CurrentCefrLevel</span>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+
+        <button class="primary-button save-languages" type="button" disabled="@_isSubmitting" @onclick="SaveAsync">
+            @(_isSubmitting ? "Zapisywanie…" : "Zapisz języki")
+        </button>
+    }
+</section>
+
+@code {
+    private readonly List<LanguageSelectionModel> _languages = [];
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private string? _errorMessage;
+    private bool _isLoading = true;
+    private bool _isSubmitting;
+    private bool _saved;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await SessionState.InitializeAsync();
+            if (!SessionState.Session.IsAuthenticated)
+            {
+                return;
+            }
+
+            var result = await LanguagesApiClient.GetUserLanguagesAsync();
+            if (result.Succeeded && result.Value is not null)
+            {
+                _languages.AddRange(result.Value.Select(LanguageSelectionModel.FromResponse));
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage;
+                _errors = result.Errors;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się połączyć z API.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _isSubmitting = true;
+        _saved = false;
+        _errorMessage = null;
+        _errors = new Dictionary<string, string[]>();
+        try
+        {
+            var selections = _languages
+                .Where(language => language.IsNative || language.IsLearning)
+                .Select(language => new UserLanguageSelectionRequest(
+                    language.Id,
+                    language.IsNative,
+                    language.IsLearning))
+                .ToArray();
+            var result = await LanguagesApiClient.UpdateUserLanguagesAsync(
+                new UpdateUserLanguagesRequest(selections));
+            if (result.Succeeded && result.Value is not null)
+            {
+                var updated = result.Value.ToDictionary(language => language.LanguageId);
+                foreach (var language in _languages)
+                {
+                    if (updated.TryGetValue(language.Id, out var profile))
+                    {
+                        language.Apply(profile);
+                    }
+                    else
+                    {
+                        language.Clear();
+                    }
+                }
+
+                _saved = true;
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage;
+                _errors = result.Errors;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się połączyć z API.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private sealed class LanguageSelectionModel
+    {
+        public Guid Id { get; private init; }
+
+        public string Code { get; private init; } = string.Empty;
+
+        public string Name { get; private init; } = string.Empty;
+
+        public string NativeName { get; private init; } = string.Empty;
+
+        public bool IsNative { get; set; }
+
+        public bool IsLearning { get; set; }
+
+        public string? CurrentCefrLevel { get; private set; }
+
+        public static LanguageSelectionModel FromResponse(UserLanguageProfileResponse response) =>
+            new()
+            {
+                Id = response.LanguageId,
+                Code = response.Code,
+                Name = response.Name,
+                NativeName = response.NativeName,
+                IsNative = response.IsNative,
+                IsLearning = response.IsLearning,
+                CurrentCefrLevel = response.CurrentCefrLevel,
+            };
+
+        public void Apply(UserLanguageProfileResponse response)
+        {
+            IsNative = response.IsNative;
+            IsLearning = response.IsLearning;
+            CurrentCefrLevel = response.CurrentCefrLevel;
+        }
+
+        public void Clear()
+        {
+            IsNative = false;
+            IsLearning = false;
+            CurrentCefrLevel = null;
+        }
+    }
+}

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\Spracher.Modules.IdentityAccess\Spracher.Modules.IdentityAccess.csproj" />
+    <ProjectReference Include="..\Modules\Spracher.Modules.Languages\Spracher.Modules.Languages.csproj" />
+    <ProjectReference Include="..\Modules\Spracher.Modules.Vocabulary\Spracher.Modules.Vocabulary.csproj" />
+    <ProjectReference Include="..\Spracher.BuildingBlocks\Spracher.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Spracher.Contracts\Spracher.Contracts.csproj" />
+    <ProjectReference Include="..\Spracher.Persistence\Spracher.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

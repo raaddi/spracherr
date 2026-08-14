@@ -1,0 +1,16 @@
+**/bin/
+**/obj/
+.vs/
+.idea/
+.vscode/
+TestResults/
+coverage/
+artifacts/
+*.user
+*.suo
+*.nupkg
+*.snupkg
+.env
+.env.*
+!.env.example
+src/Spracher.Web/wwwroot/appsettings.Development.local.json

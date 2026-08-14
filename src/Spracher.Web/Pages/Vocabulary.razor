@@ -1,0 +1,576 @@
+@page "/vocabulary"
+@inject VocabularyApiClient VocabularyApiClient
+@inject LanguagesApiClient LanguagesApiClient
+@inject AppSessionState SessionState
+
+<PageTitle>Słownictwo — Spracher</PageTitle>
+
+<section class="vocabulary-page">
+    <p class="eyebrow">Leksemy i znaczenia</p>
+    <h1>Słownictwo</h1>
+    <p class="form-intro">
+        Szukaj słów w katalogu. Każde znaczenie jest osobną jednostką, dlatego jedno słowo może mieć kilka odpowiedników.
+    </p>
+
+    <div class="vocabulary-search" role="search">
+        <label>
+            <span>Język</span>
+            <select @key="_selectedLanguageId" @bind="_selectedLanguageId" autocomplete="off" disabled="@_isLoading">
+                @foreach (var language in _languages)
+                {
+                    <option value="@language.Id">@language.NativeName (@language.Code)</option>
+                }
+            </select>
+        </label>
+        <label class="vocabulary-query">
+            <span>Szukane słowo</span>
+            <input @bind="_query" @bind:event="oninput" placeholder="np. bank, run, apple" />
+        </label>
+        <button class="primary-button" type="button" disabled="@_isSearching" @onclick="SearchAsync">
+            @(_isSearching ? "Szukam…" : "Szukaj")
+        </button>
+    </div>
+
+    <ApiErrorSummary ErrorMessage="@_errorMessage" Errors="@_errors" />
+
+    @if (_isLoading)
+    {
+        <p role="status">Ładowanie katalogu…</p>
+    }
+    else
+    {
+        <div class="vocabulary-workspace">
+            <section aria-labelledby="search-results-title">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Katalog</p>
+                        <h2 id="search-results-title">Wyniki</h2>
+                    </div>
+                    <span class="result-count">@_searchResults.Count</span>
+                </div>
+
+                @if (_searchResults.Count == 0)
+                {
+                    <p class="empty-state">Brak słów spełniających kryteria.</p>
+                }
+                else
+                {
+                    <div class="lexeme-list">
+                        @foreach (var item in _searchResults)
+                        {
+                            <button class="lexeme-result @(item.LexemeId == _details?.LexemeId ? "is-selected" : null)"
+                                    type="button"
+                                    @onclick="() => LoadDetailsAsync(item.LexemeId)">
+                                <span>
+                                    <strong>@item.Lemma</strong>
+                                    <small>@item.PartOfSpeech · @(item.CefrLevel ?? "bez poziomu")</small>
+                                </span>
+                                <span class="sense-count">@item.SenseCount zn.</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </section>
+
+            <section class="lexeme-details" aria-labelledby="lexeme-details-title">
+                @if (_isLoadingDetails)
+                {
+                    <p role="status">Ładowanie znaczeń…</p>
+                }
+                else if (_details is null)
+                {
+                    <div class="empty-state">
+                        <h2 id="lexeme-details-title">Wybierz słowo</h2>
+                        <p>Tu zobaczysz formy, wymowę, znaczenia, przykłady i odpowiedniki.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="details-header">
+                        <div>
+                            <p class="eyebrow">@_details.LanguageName · @_details.PartOfSpeech</p>
+                            <h2 id="lexeme-details-title">@_details.Lemma</h2>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(_details.CefrLevel))
+                        {
+                            <span class="cefr-badge">@_details.CefrLevel</span>
+                        }
+                    </div>
+
+                    @if (_details.Pronunciations.Count > 0)
+                    {
+                        <p class="pronunciations">
+                            @string.Join(" · ", _details.Pronunciations.Select(item => $"{item.Scheme} {item.Value}"))
+                        </p>
+                    }
+
+                    @if (_details.WordForms.Count > 0)
+                    {
+                        <div class="word-forms">
+                            @foreach (var form in _details.WordForms)
+                            {
+                                <span>@form.Form <small>@form.GrammarTags</small></span>
+                            }
+                        </div>
+                    }
+
+                    <div class="sense-list">
+                        @foreach (var sense in _details.Senses)
+                        {
+                            <article class="sense-card">
+                                <div class="sense-card-header">
+                                    <span class="language-code">@sense.DefinitionLanguageCode</span>
+                                    @if (SessionState.Session.IsAuthenticated)
+                                    {
+                                        <button class="secondary-button compact-button"
+                                                type="button"
+                                                disabled="@(_isMutating || IsSenseAdded(sense.SenseId))"
+                                                @onclick="() => AddSenseAsync(sense.SenseId)">
+                                            @(IsSenseAdded(sense.SenseId) ? "W słowniku" : "Dodaj")
+                                        </button>
+                                    }
+                                </div>
+                                <p class="sense-definition">@sense.Definition</p>
+
+                                @if (sense.Equivalents.Count > 0)
+                                {
+                                    <div class="equivalents">
+                                        <span>Odpowiedniki:</span>
+                                        @foreach (var equivalent in sense.Equivalents)
+                                        {
+                                            <button type="button" @onclick="() => LoadDetailsAsync(equivalent.LexemeId)">
+                                                @equivalent.Lemma <small>@equivalent.LanguageCode</small>
+                                            </button>
+                                        }
+                                    </div>
+                                }
+
+                                @if (sense.Examples.Count > 0)
+                                {
+                                    <ul class="example-list">
+                                        @foreach (var example in sense.Examples)
+                                        {
+                                            <li>“@example.Text” <small>@example.LanguageCode</small></li>
+                                        }
+                                    </ul>
+                                }
+                            </article>
+                        }
+                    </div>
+                }
+            </section>
+        </div>
+
+        @if (SessionState.Session.IsAuthenticated)
+        {
+            <div class="vocabulary-account-grid">
+                <section class="account-panel" aria-labelledby="my-vocabulary-title">
+                    <div class="section-heading">
+                        <div>
+                            <p class="eyebrow">Postęp</p>
+                            <h2 id="my-vocabulary-title">Mój słownik</h2>
+                        </div>
+                        <a class="secondary-link" href="/vocabulary/manage">Zarządzaj</a>
+                    </div>
+
+                    @if (_userVocabulary.Count == 0)
+                    {
+                        <p class="empty-state">Dodaj pierwsze znaczenie z katalogu.</p>
+                    }
+                    else
+                    {
+                        <div class="user-word-list">
+                            @foreach (var item in _userVocabulary)
+                            {
+                                <article>
+                                    <div>
+                                        <strong>@item.Lemma</strong>
+                                        <small>@item.LanguageCode · @item.Definition</small>
+                                    </div>
+                                    <select value="@item.Status"
+                                            disabled="@_isMutating"
+                                            @onchange="args => ChangeStatusAsync(item.Id, args.Value?.ToString())"
+                                            aria-label="Status słowa @item.Lemma">
+                                        @foreach (var status in VocabularyStatuses)
+                                        {
+                                            <option value="@status">@StatusLabel(status)</option>
+                                        }
+                                    </select>
+                                </article>
+                            }
+                        </div>
+                    }
+                </section>
+
+                <section class="account-panel" aria-labelledby="private-word-title">
+                    <p class="eyebrow">Własna treść</p>
+                    <h2 id="private-word-title">Dodaj prywatne słowo</h2>
+                    <p class="panel-intro">Prywatne słowo widzisz tylko Ty.</p>
+
+                    @if (_privateWordCreated)
+                    {
+                        <div class="alert alert-success" role="status">Słowo zostało dodane do Twojego słownika.</div>
+                    }
+
+                    <div class="private-word-form">
+                        <label>
+                            <span>Język słowa</span>
+                            <select @bind="_privateWord.LanguageId">
+                                @foreach (var language in _languages)
+                                {
+                                    <option value="@language.Id">@language.NativeName</option>
+                                }
+                            </select>
+                        </label>
+                        <label>
+                            <span>Forma podstawowa</span>
+                            <input @bind="_privateWord.Lemma" maxlength="200" />
+                        </label>
+                        <label>
+                            <span>Część mowy</span>
+                            <select @bind="_privateWord.PartOfSpeech">
+                                @foreach (var partOfSpeech in PartsOfSpeech)
+                                {
+                                    <option value="@partOfSpeech">@partOfSpeech</option>
+                                }
+                            </select>
+                        </label>
+                        <label>
+                            <span>Poziom CEFR</span>
+                            <select @bind="_privateWord.CefrLevel">
+                                @foreach (var level in CefrLevels)
+                                {
+                                    <option value="@level">@level</option>
+                                }
+                            </select>
+                        </label>
+                        <label>
+                            <span>Język definicji</span>
+                            <select @bind="_privateWord.DefinitionLanguageId">
+                                @foreach (var language in _languages)
+                                {
+                                    <option value="@language.Id">@language.NativeName</option>
+                                }
+                            </select>
+                        </label>
+                        <label class="private-definition">
+                            <span>Definicja</span>
+                            <textarea @bind="_privateWord.Definition" maxlength="1000" rows="3"></textarea>
+                        </label>
+                        <label class="private-definition">
+                            <span>Notatki <small>(opcjonalne)</small></span>
+                            <textarea @bind="_privateWord.Notes" maxlength="2000" rows="2"></textarea>
+                        </label>
+                    </div>
+                    <button class="primary-button" type="button" disabled="@_isMutating" @onclick="CreatePrivateAsync">
+                        @(_isMutating ? "Zapisywanie…" : "Dodaj prywatne słowo")
+                    </button>
+                </section>
+            </div>
+        }
+        else
+        {
+            <div class="vocabulary-sign-in">
+                <div>
+                    <p class="eyebrow">Twój postęp</p>
+                    <h2>Zapisuj słowa i oznaczaj je jako nauczone</h2>
+                </div>
+                <a class="primary-link" href="/login">Zaloguj się</a>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private static readonly string[] VocabularyStatuses = ["New", "Learning", "Learned", "Suspended"];
+    private static readonly string[] PartsOfSpeech =
+    [
+        "Noun", "Verb", "Adjective", "Adverb", "Pronoun", "Preposition",
+        "Conjunction", "Determiner", "Numeral", "Interjection", "Phrase", "Other",
+    ];
+    private static readonly string[] CefrLevels = ["A0", "A1", "A2", "B1", "B2", "C1", "C2"];
+
+    private readonly List<LanguageResponse> _languages = [];
+    private readonly List<VocabularySearchItemResponse> _searchResults = [];
+    private readonly List<UserVocabularyItemResponse> _userVocabulary = [];
+    private readonly PrivateWordModel _privateWord = new();
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private VocabularyDetailsResponse? _details;
+    private Guid _selectedLanguageId;
+    private string _query = string.Empty;
+    private string? _errorMessage;
+    private bool _isLoading = true;
+    private bool _isSearching;
+    private bool _isLoadingDetails;
+    private bool _isMutating;
+    private bool _privateWordCreated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await SessionState.InitializeAsync();
+            var catalogResult = await LanguagesApiClient.GetCatalogAsync();
+            if (!catalogResult.Succeeded || catalogResult.Value is null)
+            {
+                ApplyError(catalogResult);
+                return;
+            }
+
+            _languages.AddRange(catalogResult.Value);
+            _selectedLanguageId = _languages.FirstOrDefault(language => language.Code == "en")?.Id
+                ?? _languages.FirstOrDefault()?.Id
+                ?? Guid.Empty;
+            _privateWord.LanguageId = _selectedLanguageId;
+            _privateWord.DefinitionLanguageId =
+                _languages.FirstOrDefault(language => language.Code == "pl")?.Id
+                ?? _selectedLanguageId;
+
+            await SearchAsync();
+            if (SessionState.Session.IsAuthenticated)
+            {
+                await LoadUserVocabularyAsync();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się połączyć z API.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SearchAsync()
+    {
+        if (_selectedLanguageId == Guid.Empty)
+        {
+            return;
+        }
+
+        _isSearching = true;
+        ClearError();
+        try
+        {
+            var result = await VocabularyApiClient.SearchAsync(_selectedLanguageId, _query);
+            if (result.Succeeded && result.Value is not null)
+            {
+                _searchResults.Clear();
+                _searchResults.AddRange(result.Value.Items);
+                _details = null;
+                if (_searchResults.Count > 0)
+                {
+                    await LoadDetailsAsync(_searchResults[0].LexemeId);
+                }
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się pobrać słownictwa.";
+        }
+        finally
+        {
+            _isSearching = false;
+        }
+    }
+
+    private async Task LoadDetailsAsync(Guid lexemeId)
+    {
+        _isLoadingDetails = true;
+        ClearError();
+        try
+        {
+            var result = await VocabularyApiClient.GetDetailsAsync(lexemeId);
+            if (result.Succeeded)
+            {
+                _details = result.Value;
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się pobrać szczegółów słowa.";
+        }
+        finally
+        {
+            _isLoadingDetails = false;
+        }
+    }
+
+    private async Task AddSenseAsync(Guid senseId)
+    {
+        _isMutating = true;
+        ClearError();
+        try
+        {
+            var result = await VocabularyApiClient.AddItemAsync(senseId);
+            if (result.Succeeded && result.Value is not null)
+            {
+                UpsertUserItem(result.Value);
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się dodać znaczenia do słownika.";
+        }
+        finally
+        {
+            _isMutating = false;
+        }
+    }
+
+    private async Task CreatePrivateAsync()
+    {
+        _isMutating = true;
+        _privateWordCreated = false;
+        ClearError();
+        try
+        {
+            var request = new CreatePrivateVocabularyRequest(
+                _privateWord.LanguageId,
+                _privateWord.Lemma,
+                _privateWord.PartOfSpeech,
+                _privateWord.CefrLevel,
+                _privateWord.Notes,
+                _privateWord.DefinitionLanguageId,
+                _privateWord.Definition);
+            var result = await VocabularyApiClient.CreatePrivateAsync(request);
+            if (result.Succeeded && result.Value is not null)
+            {
+                UpsertUserItem(result.Value);
+                _privateWordCreated = true;
+                _privateWord.ClearText();
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się dodać prywatnego słowa.";
+        }
+        finally
+        {
+            _isMutating = false;
+        }
+    }
+
+    private async Task ChangeStatusAsync(Guid itemId, string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return;
+        }
+
+        _isMutating = true;
+        ClearError();
+        try
+        {
+            var result = await VocabularyApiClient.UpdateStatusAsync(itemId, status);
+            if (result.Succeeded && result.Value is not null)
+            {
+                UpsertUserItem(result.Value);
+            }
+            else
+            {
+                ApplyError(result);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się zmienić statusu słowa.";
+        }
+        finally
+        {
+            _isMutating = false;
+        }
+    }
+
+    private async Task LoadUserVocabularyAsync()
+    {
+        var result = await VocabularyApiClient.GetUserVocabularyAsync();
+        if (result.Succeeded && result.Value is not null)
+        {
+            _userVocabulary.Clear();
+            _userVocabulary.AddRange(result.Value.Items);
+        }
+        else
+        {
+            ApplyError(result);
+        }
+    }
+
+    private bool IsSenseAdded(Guid senseId) =>
+        _userVocabulary.Any(item => item.LexemeSenseId == senseId);
+
+    private void UpsertUserItem(UserVocabularyItemResponse item)
+    {
+        var index = _userVocabulary.FindIndex(candidate => candidate.Id == item.Id);
+        if (index >= 0)
+        {
+            _userVocabulary[index] = item;
+        }
+        else
+        {
+            _userVocabulary.Insert(0, item);
+        }
+    }
+
+    private void ApplyError<T>(ApiResult<T> result)
+    {
+        _errorMessage = result.ErrorMessage;
+        _errors = result.Errors;
+    }
+
+    private void ClearError()
+    {
+        _errorMessage = null;
+        _errors = new Dictionary<string, string[]>();
+    }
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "New" => "Nowe",
+        "Learning" => "Uczę się",
+        "Learned" => "Nauczone",
+        "Suspended" => "Wstrzymane",
+        _ => status,
+    };
+
+    private sealed class PrivateWordModel
+    {
+        public Guid LanguageId { get; set; }
+
+        public string Lemma { get; set; } = string.Empty;
+
+        public string PartOfSpeech { get; set; } = "Noun";
+
+        public string CefrLevel { get; set; } = "A1";
+
+        public string? Notes { get; set; }
+
+        public Guid DefinitionLanguageId { get; set; }
+
+        public string Definition { get; set; } = string.Empty;
+
+        public void ClearText()
+        {
+            Lemma = string.Empty;
+            Notes = null;
+            Definition = string.Empty;
+        }
+    }
+}

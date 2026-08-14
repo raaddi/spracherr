@@ -1,0 +1,104 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AppSessionState SessionState
+@inject AuthApiClient AuthApiClient
+@inject NavigationManager Navigation
+
+<div class="app-shell">
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="/" aria-label="Spracher — strona główna">
+                <span class="brand-mark" aria-hidden="true">S</span>
+                <span class="brand-copy">
+                    <strong>Spracher</strong>
+                    <small>Language learning</small>
+                </span>
+            </a>
+
+            <nav class="topnav" aria-label="Główna nawigacja">
+                <div class="nav-section">
+                    <span class="nav-section-label">Nauka</span>
+                    <div class="nav-links">
+                        <NavLink href="/" Match="NavLinkMatch.All">Start</NavLink>
+                        <NavLink href="/vocabulary" Match="NavLinkMatch.All">Słownictwo</NavLink>
+                        @if (SessionState.Session.IsAuthenticated)
+                        {
+                            <NavLink href="/vocabulary/manage" Match="NavLinkMatch.All">Mój słownik</NavLink>
+                            <NavLink href="/languages" Match="NavLinkMatch.All">Języki</NavLink>
+                        }
+                    </div>
+                </div>
+
+                <div class="nav-section nav-account-section">
+                    <span class="nav-section-label">Konto</span>
+                    <div class="nav-links">
+                        @if (SessionState.Session.IsAuthenticated)
+                        {
+                            <NavLink href="/profile" Match="NavLinkMatch.All">
+                                @SessionState.Session.User?.DisplayName
+                            </NavLink>
+                            <button type="button" disabled="@_isSigningOut" @onclick="SignOutAsync">
+                                Wyloguj
+                            </button>
+                        }
+                        else
+                        {
+                            <NavLink href="/login" Match="NavLinkMatch.All">Zaloguj</NavLink>
+                            <NavLink class="nav-primary" href="/register" Match="NavLinkMatch.All">
+                                Załóż konto
+                            </NavLink>
+                        }
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content">
+        @Body
+    </main>
+</div>
+
+@code {
+    private bool _isSigningOut;
+
+    protected override async Task OnInitializedAsync()
+    {
+        SessionState.Changed += OnSessionChanged;
+
+        try
+        {
+            await SessionState.InitializeAsync();
+        }
+        catch (HttpRequestException)
+        {
+            // The home page exposes API availability; navigation remains usable offline.
+        }
+    }
+
+    public void Dispose()
+    {
+        SessionState.Changed -= OnSessionChanged;
+        GC.SuppressFinalize(this);
+    }
+
+    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+
+    private async Task SignOutAsync()
+    {
+        _isSigningOut = true;
+        try
+        {
+            var result = await AuthApiClient.LogoutAsync();
+            if (result.Succeeded)
+            {
+                SessionState.Set(new AuthSessionResponse(false, null));
+                Navigation.NavigateTo("/");
+            }
+        }
+        finally
+        {
+            _isSigningOut = false;
+        }
+    }
+}

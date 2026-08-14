@@ -1,0 +1,64 @@
+@page "/resend-confirmation"
+@inject AuthApiClient AuthApiClient
+
+<PageTitle>Nowy link potwierdzający — Spracher</PageTitle>
+
+<section class="form-page">
+    <p class="eyebrow">Weryfikacja konta</p>
+    <h1>Wyślij nowy link</h1>
+    <p class="form-intro">Jeśli konto istnieje i wymaga potwierdzenia, wyślemy nową wiadomość.</p>
+
+    @if (_sent)
+    {
+        <div class="alert alert-success" role="status">Sprawdź swoją skrzynkę e-mail.</div>
+    }
+    else
+    {
+        <ApiErrorSummary ErrorMessage="@_errorMessage" Errors="@_errors" />
+        <EditForm Model="@_model" OnValidSubmit="SubmitAsync" FormName="resend-confirmation" class="form-card">
+            <DataAnnotationsValidator />
+            <div class="field">
+                <label for="resend-email">E-mail</label>
+                <InputText id="resend-email" type="email" autocomplete="email" @bind-Value="_model.Email" />
+                <ValidationMessage For="@(() => _model.Email)" />
+            </div>
+            <button class="primary-button" type="submit" disabled="@_isSubmitting">Wyślij link</button>
+        </EditForm>
+    }
+</section>
+
+@code {
+    private readonly EmailModel _model = new();
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private string? _errorMessage;
+    private bool _isSubmitting;
+    private bool _sent;
+
+    private async Task SubmitAsync()
+    {
+        _isSubmitting = true;
+        try
+        {
+            var result = await AuthApiClient.ResendConfirmationAsync(
+                new ResendConfirmationRequest(_model.Email));
+            _sent = result.Succeeded;
+            _errorMessage = result.ErrorMessage;
+            _errors = result.Errors;
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się połączyć z API.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private sealed class EmailModel
+    {
+        [Required(ErrorMessage = "Podaj adres e-mail.")]
+        [EmailAddress(ErrorMessage = "Podaj poprawny adres e-mail.")]
+        public string Email { get; set; } = string.Empty;
+    }
+}

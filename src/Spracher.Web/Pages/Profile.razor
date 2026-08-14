@@ -1,0 +1,122 @@
+@page "/profile"
+@inject AuthApiClient AuthApiClient
+@inject AppSessionState SessionState
+
+<PageTitle>Profil — Spracher</PageTitle>
+
+<section class="form-page">
+    <p class="eyebrow">Ustawienia konta</p>
+    <h1>Twój profil</h1>
+
+    @if (_isLoading)
+    {
+        <p class="form-intro" role="status">Ładowanie profilu…</p>
+    }
+    else if (!SessionState.Session.IsAuthenticated)
+    {
+        <div class="alert alert-error" role="alert">Zaloguj się, aby edytować profil.</div>
+        <a class="primary-link" href="/login">Zaloguj się</a>
+    }
+    else
+    {
+        @if (_saved)
+        {
+            <div class="alert alert-success" role="status">Profil został zapisany.</div>
+        }
+        <ApiErrorSummary ErrorMessage="@_errorMessage" Errors="@_errors" />
+        <EditForm Model="@_model" OnValidSubmit="SubmitAsync" FormName="profile" class="form-card">
+            <DataAnnotationsValidator />
+            <div class="field">
+                <label for="profile-email">E-mail</label>
+                <input id="profile-email" type="email" value="@SessionState.Session.User?.Email" disabled />
+            </div>
+            <div class="field">
+                <label for="profile-name">Nazwa wyświetlana</label>
+                <InputText id="profile-name" autocomplete="name" @bind-Value="_model.DisplayName" />
+                <ValidationMessage For="@(() => _model.DisplayName)" />
+            </div>
+            <div class="field">
+                <label for="profile-timezone">Strefa czasowa</label>
+                <InputText id="profile-timezone" autocomplete="off" @bind-Value="_model.TimeZoneId" />
+                <small>Identyfikator IANA, np. Europe/Warsaw.</small>
+                <ValidationMessage For="@(() => _model.TimeZoneId)" />
+            </div>
+            <button class="primary-button" type="submit" disabled="@_isSubmitting">
+                @(_isSubmitting ? "Zapisywanie…" : "Zapisz profil")
+            </button>
+        </EditForm>
+    }
+</section>
+
+@code {
+    private readonly ProfileModel _model = new();
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private string? _errorMessage;
+    private bool _isLoading = true;
+    private bool _isSubmitting;
+    private bool _saved;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await SessionState.InitializeAsync();
+            var user = SessionState.Session.User;
+            if (user is not null)
+            {
+                _model.DisplayName = user.DisplayName;
+                _model.TimeZoneId = user.TimeZoneId;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się połączyć z API.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _isSubmitting = true;
+        _saved = false;
+        _errorMessage = null;
+        _errors = new Dictionary<string, string[]>();
+        try
+        {
+            var result = await AuthApiClient.UpdateProfileAsync(
+                new UpdateProfileRequest(_model.DisplayName, _model.TimeZoneId));
+            if (result.Succeeded && result.Value is not null)
+            {
+                SessionState.Set(new AuthSessionResponse(true, result.Value));
+                _saved = true;
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage;
+                _errors = result.Errors;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się połączyć z API.";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private sealed class ProfileModel
+    {
+        [Required(ErrorMessage = "Podaj nazwę wyświetlaną.")]
+        [StringLength(80, MinimumLength = 2, ErrorMessage = "Nazwa musi mieć od 2 do 80 znaków.")]
+        public string DisplayName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Podaj strefę czasową.")]
+        [StringLength(100, ErrorMessage = "Identyfikator strefy czasowej jest za długi.")]
+        public string TimeZoneId { get; set; } = TimeZoneInfo.Local.Id;
+    }
+}

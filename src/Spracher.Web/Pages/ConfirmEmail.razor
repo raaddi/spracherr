@@ -1,0 +1,73 @@
+@page "/confirm-email"
+@inject AuthApiClient AuthApiClient
+
+<PageTitle>Potwierdzenie e-mail — Spracher</PageTitle>
+
+<section class="form-page">
+    <p class="eyebrow">Weryfikacja konta</p>
+    <h1>Potwierdzenie e-mail</h1>
+
+    @if (_isLoading)
+    {
+        <p class="form-intro" role="status">Potwierdzamy adres…</p>
+    }
+    else if (_confirmed)
+    {
+        <div class="alert alert-success" role="status">
+            Adres e-mail został potwierdzony. Możesz się teraz zalogować.
+        </div>
+        <a class="primary-link" href="/login">Zaloguj się</a>
+    }
+    else
+    {
+        <ApiErrorSummary ErrorMessage="@_errorMessage" Errors="@_errors" />
+        <a class="text-link" href="/resend-confirmation">Wyślij nowy link potwierdzający</a>
+    }
+</section>
+
+@code {
+    [SupplyParameterFromQuery]
+    public Guid UserId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? Code { get; set; }
+
+    private IReadOnlyDictionary<string, string[]> _errors = new Dictionary<string, string[]>();
+    private string? _errorMessage;
+    private bool _isLoading = true;
+    private bool _confirmed;
+    private bool _attempted;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_attempted)
+        {
+            return;
+        }
+
+        _attempted = true;
+        if (UserId == Guid.Empty || string.IsNullOrWhiteSpace(Code))
+        {
+            _errorMessage = "Link potwierdzający jest niepełny.";
+            _isLoading = false;
+            return;
+        }
+
+        try
+        {
+            var result = await AuthApiClient.ConfirmEmailAsync(
+                new ConfirmEmailRequest(UserId, Code));
+            _confirmed = result.Succeeded;
+            _errorMessage = result.ErrorMessage;
+            _errors = result.Errors;
+        }
+        catch (HttpRequestException)
+        {
+            _errorMessage = "Nie udało się połączyć z API.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}
