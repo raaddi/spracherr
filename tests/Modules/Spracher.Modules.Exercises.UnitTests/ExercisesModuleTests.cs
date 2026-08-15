@@ -16,8 +16,9 @@ public sealed class ExercisesModuleTests
         Assert.Single(
             services,
             descriptor => descriptor.ServiceType == typeof(ExercisesModuleMarker));
-        Assert.Single(
-            services,
-            descriptor => descriptor.ServiceType == typeof(IExerciseTypeHandler));
+        Assert.Equal(
+            2,
+            services.Count(
+                descriptor => descriptor.ServiceType == typeof(IExerciseTypeHandler)));
     }
 }

@@ -1,6 +1,6 @@
 # Spracher — architektura systemu
 
-Status dokumentu: **architektura bazowa przyjęta; Vocabulary ukończone, Exercise Engine 3A działa pionowo**
+Status dokumentu: **architektura bazowa przyjęta; Vocabulary ukończone, Exercise Engine 3B działa pionowo**
 Zakres: pierwsza wersja webowa/PWA oraz kierunek dalszego rozwoju SaaS  
 Docelowy stos: .NET 10, ASP.NET Core, Blazor WebAssembly PWA, EF Core, PostgreSQL, SignalR
 
@@ -306,15 +306,15 @@ Dodanie nowego rodzaju zwykle wymaga nowego handlera i komponentu UI, ale nie no
 
 Klucze odpowiedzi nigdy nie trafiają do publicznego DTO. Próba wiąże się z dokładną `ExerciseVersion`, nie z „najnowszą wersją”.
 
-Slice 3A implementuje tabele `ExerciseDefinitions`, `ExerciseVersions`, `ExerciseAttempts` i `ExerciseSubmissions`, handler `MultipleChoice`, publiczny katalog, chronione rozpoczęcie i wysłanie próby oraz renderer Blazor pod `/practice`. `ExerciseSet`, workflow autorskiego publikowania i kolejne typy są świadomie pozostawione na następne przyrosty. Definicja odpowiedzi poprawnej pozostaje wyłącznie w serwerowym JSONB; publiczny payload zawiera tylko dane potrzebne rendererowi.
+Slice 3A–3B implementuje tabele `ExerciseDefinitions`, `ExerciseVersions`, `ExerciseAttempts` i `ExerciseSubmissions`, handlery `MultipleChoice` i `FillInBlank`, rejestrowane renderery Blazor pod `/practice` oraz authoring API chronione rolą `Admin`. Nowa definicja zaczyna jako draft, przechodzi walidację handlerem i dopiero jawna publikacja udostępnia ją w katalogu. Jeden filtrowany indeks unikalny dopuszcza najwyżej jeden draft definicji, a próba zachowuje dokładną wersję także po publikacji kolejnej. `ExerciseSet`, `Translation` i pełny panel autora pozostają na następne przyrosty. Klucz odpowiedzi pozostaje wyłącznie w serwerowym JSONB; publiczny payload zawiera tylko dane potrzebne rendererowi.
 
 Docelowy katalog typów i jego etapowanie:
 
 | Typ | Sposób obsługi | Plan |
 |---|---|---|
-| `MultipleChoice` | jedna/wiele odpowiedzi, losowanie kontrolowane seedem | pierwszy slice |
-| `FillInBlank` | jedna lub kilka luk, akceptowane warianty odpowiedzi | pierwszy slice |
-| `Translation` | krótkie odpowiedzi z wieloma akceptowanymi wariantami | pierwszy slice |
+| `MultipleChoice` | jedna/wiele odpowiedzi, losowanie kontrolowane seedem | slice 3A — działa |
+| `FillInBlank` | jedna lub kilka luk, akceptowane warianty odpowiedzi | slice 3B — działa |
+| `Translation` | krótkie odpowiedzi z wieloma akceptowanymi wariantami | slice 3C |
 | `WriteWord` | zapis formy/leksemu na podstawie wskazówki | następny przyrost |
 | `MatchPairs` | dwie kolekcje i mapa par | następny przyrost |
 | `SentenceOrdering` | tokeny i poprawne sekwencje | następny przyrost |

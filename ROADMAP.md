@@ -92,7 +92,7 @@ Kryterium ukończenia:
 
 ## Etap 3 — Exercise Engine
 
-Status: **w toku — slice 3A ukończony 2026-08-14**. Działa `ExerciseDefinition`, niemutowalna po publikacji `ExerciseVersion`, próba i zapis odpowiedzi, rejestr handlerów, wersjonowany `MultipleChoice`, bezpieczne DTO bez klucza odpowiedzi, serwerowe ocenianie, endpointy REST i ekran PWA `/practice`. Scenariusz katalog → rozpoczęcie → odpowiedź → wynik został sprawdzony na lokalnym PostgreSQL 17.
+Status: **w toku — slice 3B ukończony 2026-08-15**. Działają `ExerciseDefinition`, niemutowalna po publikacji `ExerciseVersion`, próba i zapis odpowiedzi, rejestr handlerów, typy `MultipleChoice` i `FillInBlank`, osobne renderery Blazor oraz authoring API z workflow draft → walidacja → publikacja. Bezpieczne DTO nie ujawnia klucza odpowiedzi. Scenariusz publikacji dwóch wersji potwierdził na lokalnym PostgreSQL 17, że rozpoczęta wcześniej próba nadal jest oceniana według przypiętej starszej wersji.
 
 Cel: jeden wspólny lifecycle ćwiczeń sprawdzony na kilku rzeczywiście różnych typach.
 
@@ -282,4 +282,4 @@ Zakres zależny od danych z produkcji:
 
 ## Następne zadanie implementacyjne
 
-Kolejne osobne zadanie powinno dotyczyć **Etapu 3B — wersjonowanie autorskie i `FillInBlank`**: utworzenie draftu, walidacja handlerem, publikacja nowej niezmiennej wersji, drugi renderer Blazor oraz test potwierdzający, że starsza próba nadal odtwarza wynik na starej wersji. `ExerciseSet`, `Translation` i Content Engine pozostają poza tym przyrostem.
+Kolejne osobne zadanie powinno dotyczyć **Etapu 3C — `ExerciseSet` i `Translation`**: grupowanie przypiętych wersji ćwiczeń w uporządkowany zestaw oraz trzeci handler i renderer wykorzystujący wiele akceptowanych wariantów odpowiedzi. Content Engine i pełny panel autora pozostają poza tym przyrostem.

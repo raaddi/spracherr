@@ -34,3 +34,27 @@ public sealed record ExerciseResultResponse(
     int MaxPoints,
     string Feedback,
     DateTimeOffset CompletedAt);
+
+public sealed record CreateExerciseDefinitionRequest(
+    string TypeKey,
+    string Title,
+    string? Description,
+    int SchemaVersion,
+    string Prompt,
+    JsonElement Definition);
+
+public sealed record CreateExerciseVersionRequest(
+    int SchemaVersion,
+    string Prompt,
+    JsonElement Definition);
+
+public sealed record ExerciseAuthoringVersionResponse(
+    Guid DefinitionId,
+    Guid ExerciseVersionId,
+    int VersionNumber,
+    int SchemaVersion,
+    string TypeKey,
+    string Title,
+    string Status,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? PublishedAt);

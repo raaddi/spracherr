@@ -41,4 +41,19 @@ public sealed class ExerciseDomainTests
         Assert.Throws<InvalidOperationException>(
             () => attempt.Complete(0, 10, now.AddSeconds(10)));
     }
+
+    [Fact]
+    public void OwnedDefinitionShouldRetainAuthorIdentity()
+    {
+        var ownerUserId = Guid.NewGuid();
+
+        var definition = ExerciseDefinition.CreateOwned(
+            ownerUserId,
+            "fill-in-blank",
+            "Owned exercise",
+            description: null,
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal(ownerUserId, definition.OwnerUserId);
+    }
 }

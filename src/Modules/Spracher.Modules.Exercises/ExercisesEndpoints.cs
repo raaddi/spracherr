@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Spracher.Contracts.Exercises;
+using Spracher.IdentityModel;
 using Spracher.Modules.Exercises.Application;
 
 namespace Spracher.Modules.Exercises;
@@ -27,6 +28,19 @@ public static class ExercisesEndpoints
             .WithMetadata(new RequireAntiforgeryTokenAttribute(true))
             .WithTags("Exercises")
             .WithName("SubmitExerciseAttempt");
+
+        var authoring = endpoints.MapGroup("/api/v1/exercise-authoring")
+            .WithTags("Exercise authoring")
+            .RequireAuthorization(policy => policy.RequireRole(SystemRoles.Admin));
+        authoring.MapPost("/definitions", CreateDefinition)
+            .WithMetadata(new RequireAntiforgeryTokenAttribute(true))
+            .WithName("CreateExerciseDefinition");
+        authoring.MapPost("/definitions/{definitionId:guid}/versions", CreateVersion)
+            .WithMetadata(new RequireAntiforgeryTokenAttribute(true))
+            .WithName("CreateExerciseVersion");
+        authoring.MapPost("/versions/{versionId:guid}/publish", PublishVersion)
+            .WithMetadata(new RequireAntiforgeryTokenAttribute(true))
+            .WithName("PublishExerciseVersion");
 
         return endpoints;
     }
@@ -63,6 +77,38 @@ public static class ExercisesEndpoints
                 Results.Ok)
             : Results.Unauthorized();
 
+    private static async Task<IResult> CreateDefinition(
+        ClaimsPrincipal principal,
+        CreateExerciseDefinitionRequest request,
+        ExerciseAuthoringService service,
+        CancellationToken cancellationToken) =>
+        TryGetUserId(principal, out var userId)
+            ? MapResult(
+                await service.CreateDefinitionAsync(userId, request, cancellationToken),
+                value => Results.Created(
+                    $"/api/v1/exercise-authoring/versions/{value.ExerciseVersionId}",
+                    value))
+            : Results.Unauthorized();
+
+    private static async Task<IResult> CreateVersion(
+        Guid definitionId,
+        CreateExerciseVersionRequest request,
+        ExerciseAuthoringService service,
+        CancellationToken cancellationToken) =>
+        MapResult(
+            await service.CreateVersionAsync(definitionId, request, cancellationToken),
+            value => Results.Created(
+                $"/api/v1/exercise-authoring/versions/{value.ExerciseVersionId}",
+                value));
+
+    private static async Task<IResult> PublishVersion(
+        Guid versionId,
+        ExerciseAuthoringService service,
+        CancellationToken cancellationToken) =>
+        MapResult(
+            await service.PublishVersionAsync(versionId, cancellationToken),
+            Results.Ok);
+
     private static IResult MapResult<T>(
         ExerciseResult<T> result,
         Func<T, IResult> success)
@@ -82,7 +128,7 @@ public static class ExercisesEndpoints
             ExerciseResultKind.Conflict => Results.ValidationProblem(
                 errors,
                 statusCode: StatusCodes.Status409Conflict,
-                title: "The exercise attempt cannot be changed."),
+                title: "The exercise operation conflicts with the current state."),
             ExerciseResultKind.NotFound => Results.NotFound(),
             _ => Results.Problem(statusCode: StatusCodes.Status500InternalServerError),
         };

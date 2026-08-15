@@ -1,0 +1,88 @@
+@using System.Text.Json
+
+<div class="fill-blank-sentence" aria-label="Zdanie z lukami">
+    @foreach (var segment in _segments)
+    {
+        @if (segment.Kind == "text")
+        {
+            <span>@segment.Text</span>
+        }
+        else
+        {
+            <input value="@GetAnswer(segment.BlankId!)"
+                   disabled="@Disabled"
+                   autocomplete="off"
+                   aria-label="Brakujące słowo"
+                   @oninput="args => ChangeAnswerAsync(segment.BlankId!, args.Value?.ToString())" />
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public JsonElement Payload { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback<JsonElement?> ResponseChanged { get; set; }
+
+    private readonly List<SentenceSegment> _segments = [];
+    private readonly Dictionary<string, string> _answers = new(StringComparer.Ordinal);
+    private string? _loadedPayload;
+
+    protected override void OnParametersSet()
+    {
+        var payloadJson = Payload.GetRawText();
+        if (string.Equals(payloadJson, _loadedPayload, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedPayload = payloadJson;
+        _segments.Clear();
+        _answers.Clear();
+        if (!Payload.TryGetProperty("segments", out var segments))
+        {
+            return;
+        }
+
+        foreach (var segment in segments.EnumerateArray())
+        {
+            var kind = segment.GetProperty("kind").GetString() ?? string.Empty;
+            var blankId = segment.TryGetProperty("blankId", out var blankProperty)
+                && blankProperty.ValueKind == JsonValueKind.String
+                    ? blankProperty.GetString()
+                    : null;
+            var text = segment.TryGetProperty("text", out var textProperty)
+                && textProperty.ValueKind == JsonValueKind.String
+                    ? textProperty.GetString()
+                    : null;
+            _segments.Add(new SentenceSegment(kind, text, blankId));
+            if (kind == "blank" && blankId is not null)
+            {
+                _answers[blankId] = string.Empty;
+            }
+        }
+    }
+
+    private async Task ChangeAnswerAsync(string blankId, string? value)
+    {
+        _answers[blankId] = value ?? string.Empty;
+        if (_answers.Values.Any(string.IsNullOrWhiteSpace))
+        {
+            await ResponseChanged.InvokeAsync(null);
+            return;
+        }
+
+        var responseJson = JsonSerializer.Serialize(new { answers = _answers });
+        using var document = JsonDocument.Parse(responseJson);
+        await ResponseChanged.InvokeAsync(document.RootElement.Clone());
+    }
+
+    private string GetAnswer(string blankId) =>
+        _answers.GetValueOrDefault(blankId, string.Empty);
+
+    private sealed record SentenceSegment(string Kind, string? Text, string? BlankId);
+}

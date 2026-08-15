@@ -1,6 +1,6 @@
 # Spracher
 
-Produkcyjnie projektowany SaaS do nauki języków, rozwijany jako modularny monolit na .NET 10. **Etapy 0–2 są ukończone, a pierwszy pionowy slice Exercise Engine działa**. Vocabulary obejmuje katalog `Concept/LexemeSense/Lexeme`, prywatne słowa, statusy nauki, listy i kategorie. Ćwiczenia mają wersjonowane definicje, serwerowe ocenianie i pierwszy typ `MultipleChoice`; powtórki należą do Etapu 5.
+Produkcyjnie projektowany SaaS do nauki języków, rozwijany jako modularny monolit na .NET 10. **Etapy 0–2 są ukończone, a Exercise Engine działa już dla dwóch typów ćwiczeń**. Vocabulary obejmuje katalog `Concept/LexemeSense/Lexeme`, prywatne słowa, statusy nauki, listy i kategorie. Ćwiczenia mają workflow draft → walidacja → publikacja, wersjonowane definicje, serwerowe ocenianie oraz typy `MultipleChoice` i `FillInBlank`; powtórki należą do Etapu 5.
 
 Decyzje architektoniczne znajdują się w [ARCHITECTURE.md](./ARCHITECTURE.md), a kolejność prac w [ROADMAP.md](./ROADMAP.md).
 
@@ -86,11 +86,11 @@ Seed demonstracyjny English–Polish celowo jest mały. Słowo `bank` pokazuje d
 
 Pomiar wyszukiwania na kontrolowanych 10 000 leksemach oraz zastosowaną optymalizację indeksu opisuje [docs/performance/vocabulary-prefix-search.md](./docs/performance/vocabulary-prefix-search.md).
 
-## Exercise Engine — slice 3A
+## Exercise Engine — slice 3A–3B
 
-Strona `/practice` pokazuje katalog opublikowanych ćwiczeń. Zalogowany użytkownik może rozpocząć próbę `MultipleChoice`, wybrać odpowiedź i otrzymać wynik oceniony przez backend. Próba jest przypięta do konkretnej `ExerciseVersion`, a publiczny payload celowo nie zawiera `correctOptionIds` ani feedbacku z definicji.
+Strona `/practice` pokazuje katalog opublikowanych ćwiczeń. Zalogowany użytkownik może rozwiązywać `MultipleChoice` i `FillInBlank` przez osobne renderery Blazor, ale wspólny lifecycle próby. Próba jest przypięta do konkretnej `ExerciseVersion`, a publiczny payload celowo nie zawiera klucza odpowiedzi ani feedbacku z definicji.
 
-Pierwszy slice nie zawiera jeszcze panelu autora, `ExerciseSet`, `FillInBlank` ani `Translation`. Te elementy będą dodawane jako kolejne pionowe przyrosty wspólnego lifecycle, bez tworzenia osobnych tabel prób dla każdego typu.
+Chronione rolą `Admin` authoring API pozwala utworzyć definicję z draftem, zwalidować ją właściwym handlerem, utworzyć kolejną wersję i opublikować draft. W katalogu widoczne są wyłącznie wersje opublikowane, a historyczna próba zachowuje wersję, na której została rozpoczęta. Pełny panel autora, `ExerciseSet` i `Translation` pozostają na kolejne przyrosty.
 
 ## Migracje
 

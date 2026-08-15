@@ -18,8 +18,11 @@ public static class ExercisesModule
             ServiceDescriptor.Singleton<IDbModelConfigurator, ExercisesDbModelConfigurator>());
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IExerciseTypeHandler, MultipleChoiceExerciseHandler>());
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IExerciseTypeHandler, FillInBlankExerciseHandler>());
         services.AddSingleton<ExerciseTypeRegistry>();
         services.AddScoped<ExerciseService>();
+        services.AddScoped<ExerciseAuthoringService>();
         return services;
     }
 }

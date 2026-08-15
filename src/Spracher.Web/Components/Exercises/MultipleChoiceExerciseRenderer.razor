@@ -1,0 +1,82 @@
+@using System.Text.Json
+
+<div class="exercise-options" role="group" aria-label="Możliwe odpowiedzi">
+    @foreach (var option in _options)
+    {
+        <button class="exercise-option @(IsSelected(option.Id) ? "is-selected" : null)"
+                type="button"
+                disabled="@Disabled"
+                aria-pressed="@IsSelected(option.Id)"
+                @onclick="() => SelectOptionAsync(option.Id)">
+            <span class="option-marker" aria-hidden="true"></span>
+            <span>@option.Text</span>
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public JsonElement Payload { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback<JsonElement?> ResponseChanged { get; set; }
+
+    private readonly List<ExerciseOption> _options = [];
+    private readonly HashSet<string> _selectedOptionIds = new(StringComparer.Ordinal);
+    private string? _loadedPayload;
+    private bool _allowMultiple;
+
+    protected override void OnParametersSet()
+    {
+        var payloadJson = Payload.GetRawText();
+        if (string.Equals(payloadJson, _loadedPayload, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedPayload = payloadJson;
+        _options.Clear();
+        _selectedOptionIds.Clear();
+        _allowMultiple = Payload.TryGetProperty("allowMultiple", out var allowMultiple)
+                         && allowMultiple.GetBoolean();
+
+        if (!Payload.TryGetProperty("options", out var options))
+        {
+            return;
+        }
+
+        foreach (var option in options.EnumerateArray())
+        {
+            _options.Add(new ExerciseOption(
+                option.GetProperty("id").GetString() ?? string.Empty,
+                option.GetProperty("text").GetString() ?? string.Empty));
+        }
+    }
+
+    private async Task SelectOptionAsync(string optionId)
+    {
+        if (!_allowMultiple)
+        {
+            _selectedOptionIds.Clear();
+            _selectedOptionIds.Add(optionId);
+        }
+        else if (!_selectedOptionIds.Add(optionId))
+        {
+            _selectedOptionIds.Remove(optionId);
+        }
+
+        var responseJson = JsonSerializer.Serialize(new
+        {
+            selectedOptionIds = _selectedOptionIds.Order(StringComparer.Ordinal).ToArray(),
+        });
+        using var document = JsonDocument.Parse(responseJson);
+        await ResponseChanged.InvokeAsync(document.RootElement.Clone());
+    }
+
+    private bool IsSelected(string optionId) => _selectedOptionIds.Contains(optionId);
+
+    private sealed record ExerciseOption(string Id, string Text);
+}

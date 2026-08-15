@@ -1,13 +1,16 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.DependencyInjection;
 using Spracher.Api.IntegrationTests.Infrastructure;
 using Spracher.Contracts.Exercises;
 using Spracher.Contracts.Identity;
 using Spracher.Contracts.Languages;
 using Spracher.Contracts.Vocabulary;
+using Spracher.IdentityModel;
 
 namespace Spracher.Api.IntegrationTests;
 
@@ -179,7 +182,8 @@ public sealed class IdentityAndLanguagesFlowTests(PostgresWebApplicationFactory 
         var exerciseCatalog = await client.GetFromJsonAsync<ExerciseCatalogResponse>(
             "/api/v1/exercises/");
         var exercise = Assert.Single(
-            Assert.IsType<ExerciseCatalogResponse>(exerciseCatalog).Items);
+            Assert.IsType<ExerciseCatalogResponse>(exerciseCatalog).Items,
+            item => item.TypeKey == "multiple-choice");
         Assert.Equal("multiple-choice", exercise.TypeKey);
 
         var startAttempt = await SendWithAntiforgeryAsync(
@@ -213,9 +217,171 @@ public sealed class IdentityAndLanguagesFlowTests(PostgresWebApplicationFactory 
             new SubmitExerciseAttemptRequest(answerDocument.RootElement.Clone()));
         Assert.Equal(HttpStatusCode.Conflict, repeatedSubmission.StatusCode);
 
+        using var forbiddenDefinition = JsonDocument.Parse(
+            """
+            {
+              "options": [
+                { "id": "a", "text": "A" },
+                { "id": "b", "text": "B" }
+              ],
+              "correctOptionIds": ["b"],
+              "points": 5
+            }
+            """);
+        var forbiddenAuthoring = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/exercise-authoring/definitions",
+            new CreateExerciseDefinitionRequest(
+                "multiple-choice",
+                "Unauthorized definition",
+                null,
+                1,
+                "Choose.",
+                forbiddenDefinition.RootElement.Clone()));
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenAuthoring.StatusCode);
+
         using var missingTokenRequest = JsonContent.Create(new UpdateProfileRequest("No CSRF", "UTC"));
         using var rejected = await client.PutAsync("/api/v1/profile/", missingTokenRequest);
         Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+    }
+
+    [IntegrationFact]
+    public async Task AdminShouldPublishNewVersionAndExistingAttemptShouldRemainPinned()
+    {
+        using var client = CreateSecureClient();
+        await RegisterConfirmedAndLoginAsync(
+            client,
+            "Exercise Author",
+            "Secure1!Alpha",
+            promoteToAdmin: true);
+        var title = $"Versioned fill {Guid.NewGuid():N}";
+
+        using var firstDefinition = JsonDocument.Parse(
+            """
+            {
+              "segments": [
+                { "kind": "text", "text": "I ", "blankId": null },
+                { "kind": "blank", "text": null, "blankId": "verb" },
+                { "kind": "text", "text": " ready.", "blankId": null }
+              ],
+              "answers": { "verb": ["am"] },
+              "caseSensitive": false,
+              "trimWhitespace": true,
+              "points": 6,
+              "correctFeedback": "Version one.",
+              "incorrectFeedback": "Try version one again."
+            }
+            """);
+        var createDefinition = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/exercise-authoring/definitions",
+            new CreateExerciseDefinitionRequest(
+                "fill-in-blank",
+                title,
+                "Integration versioning exercise.",
+                1,
+                "Complete version one.",
+                firstDefinition.RootElement.Clone()));
+        Assert.Equal(HttpStatusCode.Created, createDefinition.StatusCode);
+        var firstDraft = await createDefinition.Content
+            .ReadFromJsonAsync<ExerciseAuthoringVersionResponse>();
+        Assert.NotNull(firstDraft);
+        Assert.Equal("Draft", firstDraft.Status);
+
+        var catalogBeforePublish = await client.GetFromJsonAsync<ExerciseCatalogResponse>(
+            "/api/v1/exercises/");
+        Assert.DoesNotContain(
+            Assert.IsType<ExerciseCatalogResponse>(catalogBeforePublish).Items,
+            item => item.DefinitionId == firstDraft.DefinitionId);
+
+        var publishFirst = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-authoring/versions/{firstDraft.ExerciseVersionId}/publish",
+            new { });
+        Assert.Equal(HttpStatusCode.OK, publishFirst.StatusCode);
+
+        var startOldAttempt = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercises/{firstDraft.DefinitionId}/attempts",
+            new { });
+        var oldPlay = await startOldAttempt.Content.ReadFromJsonAsync<ExercisePlayResponse>();
+        Assert.NotNull(oldPlay);
+        Assert.Equal(firstDraft.ExerciseVersionId, oldPlay.ExerciseVersionId);
+        Assert.False(oldPlay.Payload.TryGetProperty("answers", out _));
+
+        using var secondDefinition = JsonDocument.Parse(
+            """
+            {
+              "segments": [
+                { "kind": "text", "text": "She ", "blankId": null },
+                { "kind": "blank", "text": null, "blankId": "verb" },
+                { "kind": "text", "text": " ready.", "blankId": null }
+              ],
+              "answers": { "verb": ["is"] },
+              "caseSensitive": false,
+              "trimWhitespace": true,
+              "points": 9,
+              "correctFeedback": "Version two.",
+              "incorrectFeedback": "Try version two again."
+            }
+            """);
+        var createSecondVersion = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-authoring/definitions/{firstDraft.DefinitionId}/versions",
+            new CreateExerciseVersionRequest(
+                1,
+                "Complete version two.",
+                secondDefinition.RootElement.Clone()));
+        Assert.Equal(HttpStatusCode.Created, createSecondVersion.StatusCode);
+        var secondDraft = await createSecondVersion.Content
+            .ReadFromJsonAsync<ExerciseAuthoringVersionResponse>();
+        Assert.NotNull(secondDraft);
+        Assert.Equal(2, secondDraft.VersionNumber);
+
+        var publishSecond = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-authoring/versions/{secondDraft.ExerciseVersionId}/publish",
+            new { });
+        Assert.Equal(HttpStatusCode.OK, publishSecond.StatusCode);
+
+        using var oldAnswer = JsonDocument.Parse("""{ "answers": { "verb": "am" } }""");
+        var submitOldAttempt = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-attempts/{oldPlay.AttemptId}/submit",
+            new SubmitExerciseAttemptRequest(oldAnswer.RootElement.Clone()));
+        var oldResult = await submitOldAttempt.Content
+            .ReadFromJsonAsync<ExerciseResultResponse>();
+        Assert.True(oldResult?.IsCorrect);
+        Assert.Equal(6, oldResult?.AwardedPoints);
+        Assert.Equal(firstDraft.ExerciseVersionId, oldResult?.ExerciseVersionId);
+
+        var startNewAttempt = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercises/{firstDraft.DefinitionId}/attempts",
+            new { });
+        var newPlay = await startNewAttempt.Content.ReadFromJsonAsync<ExercisePlayResponse>();
+        Assert.NotNull(newPlay);
+        Assert.Equal(secondDraft.ExerciseVersionId, newPlay.ExerciseVersionId);
+
+        using var newAnswer = JsonDocument.Parse("""{ "answers": { "verb": "is" } }""");
+        var submitNewAttempt = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-attempts/{newPlay.AttemptId}/submit",
+            new SubmitExerciseAttemptRequest(newAnswer.RootElement.Clone()));
+        var newResult = await submitNewAttempt.Content
+            .ReadFromJsonAsync<ExerciseResultResponse>();
+        Assert.True(newResult?.IsCorrect);
+        Assert.Equal(9, newResult?.AwardedPoints);
+        Assert.Equal(secondDraft.ExerciseVersionId, newResult?.ExerciseVersionId);
     }
 
     [IntegrationFact]
@@ -302,10 +468,11 @@ public sealed class IdentityAndLanguagesFlowTests(PostgresWebApplicationFactory 
             HandleCookies = true,
         });
 
-    private static async Task RegisterConfirmedAndLoginAsync(
+    private async Task RegisterConfirmedAndLoginAsync(
         HttpClient client,
         string displayName,
-        string password)
+        string password,
+        bool promoteToAdmin = false)
     {
         var email = $"learner-{Guid.NewGuid():N}@example.com";
         var registration = await SendWithAntiforgeryAsync(
@@ -329,6 +496,19 @@ public sealed class IdentityAndLanguagesFlowTests(PostgresWebApplicationFactory 
                 Guid.Parse(confirmationQuery["userId"].ToString()),
                 confirmationQuery["code"].ToString()));
         Assert.Equal(HttpStatusCode.OK, confirmation.StatusCode);
+
+        if (promoteToAdmin)
+        {
+            await using var scope = factory.Services.CreateAsyncScope();
+            var userManager = scope.ServiceProvider
+                .GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            Assert.NotNull(user);
+            var roleResult = await userManager.AddToRoleAsync(user, SystemRoles.Admin);
+            Assert.True(
+                roleResult.Succeeded,
+                string.Join(", ", roleResult.Errors.Select(error => error.Description)));
+        }
 
         var login = await SendWithAntiforgeryAsync(
             client,

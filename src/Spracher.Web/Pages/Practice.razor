@@ -1,5 +1,4 @@
 @page "/practice"
-@using System.Text.Json
 @using Spracher.Contracts.Exercises
 @inject ExercisesApiClient ExercisesApiClient
 @inject AppSessionState SessionState
@@ -69,19 +68,10 @@
 
             <p class="exercise-prompt">@_play.Prompt</p>
 
-            <div class="exercise-options" role="group" aria-label="Możliwe odpowiedzi">
-                @foreach (var option in _options)
-                {
-                    <button class="exercise-option @(IsSelected(option.Id) ? "is-selected" : null)"
-                            type="button"
-                            disabled="@(_isBusy || _result is not null)"
-                            aria-pressed="@IsSelected(option.Id)"
-                            @onclick="() => SelectOption(option.Id)">
-                        <span class="option-marker" aria-hidden="true"></span>
-                        <span>@option.Text</span>
-                    </button>
-                }
-            </div>
+            <ExerciseRendererHost TypeKey="@_play.TypeKey"
+                                  Payload="@_play.Payload"
+                                  Disabled="@(_isBusy || _result is not null)"
+                                  ResponseChanged="OnResponseChanged" />
 
             @if (_result is not null)
             {
@@ -101,7 +91,7 @@
             {
                 <button class="primary-button"
                         type="button"
-                        disabled="@(_isBusy || _selectedOptionIds.Count == 0)"
+                        disabled="@(_isBusy || _response is null)"
                         @onclick="SubmitAsync">
                     @(_isBusy ? "Sprawdzam…" : "Sprawdź odpowiedź")
                 </button>
@@ -112,14 +102,12 @@
 
 @code {
     private readonly List<ExerciseCatalogItemResponse> _catalog = [];
-    private readonly List<ExerciseOption> _options = [];
-    private readonly HashSet<string> _selectedOptionIds = new(StringComparer.Ordinal);
     private IReadOnlyDictionary<string, string[]> _errors =
         new Dictionary<string, string[]>();
     private ExercisePlayResponse? _play;
     private ExerciseResultResponse? _result;
+    private System.Text.Json.JsonElement? _response;
     private string? _errorMessage;
-    private bool _allowMultiple;
     private bool _isLoading = true;
     private bool _isBusy;
 
@@ -154,8 +142,7 @@
 
             _play = result.Value;
             _result = null;
-            _selectedOptionIds.Clear();
-            ReadMultipleChoicePayload(_play.Payload);
+            _response = null;
         }
         finally
         {
@@ -165,7 +152,7 @@
 
     private async Task SubmitAsync()
     {
-        if (_play is null || _selectedOptionIds.Count == 0)
+        if (_play is null || _response is null)
         {
             return;
         }
@@ -174,14 +161,9 @@
         _isBusy = true;
         try
         {
-            var responseJson = JsonSerializer.Serialize(new
-            {
-                selectedOptionIds = _selectedOptionIds.Order(StringComparer.Ordinal).ToArray(),
-            });
-            using var document = JsonDocument.Parse(responseJson);
             var result = await ExercisesApiClient.SubmitAttemptAsync(
                 _play.AttemptId,
-                new SubmitExerciseAttemptRequest(document.RootElement.Clone()));
+                new SubmitExerciseAttemptRequest(_response.Value));
             if (result.Succeeded && result.Value is not null)
             {
                 _result = result.Value;
@@ -197,50 +179,14 @@
         }
     }
 
-    private void ReadMultipleChoicePayload(JsonElement payload)
-    {
-        _options.Clear();
-        if (payload.TryGetProperty("allowMultiple", out var allowMultiple))
-        {
-            _allowMultiple = allowMultiple.GetBoolean();
-        }
-
-        if (!payload.TryGetProperty("options", out var options))
-        {
-            return;
-        }
-
-        foreach (var option in options.EnumerateArray())
-        {
-            _options.Add(new ExerciseOption(
-                option.GetProperty("id").GetString() ?? string.Empty,
-                option.GetProperty("text").GetString() ?? string.Empty));
-        }
-    }
-
-    private void SelectOption(string optionId)
-    {
-        if (!_allowMultiple)
-        {
-            _selectedOptionIds.Clear();
-            _selectedOptionIds.Add(optionId);
-            return;
-        }
-
-        if (!_selectedOptionIds.Add(optionId))
-        {
-            _selectedOptionIds.Remove(optionId);
-        }
-    }
-
-    private bool IsSelected(string optionId) => _selectedOptionIds.Contains(optionId);
+    private void OnResponseChanged(System.Text.Json.JsonElement? response) =>
+        _response = response;
 
     private void ResetPlayer()
     {
         _play = null;
         _result = null;
-        _options.Clear();
-        _selectedOptionIds.Clear();
+        _response = null;
         ClearError();
     }
 
@@ -259,8 +205,7 @@
     private static string TypeLabel(string typeKey) => typeKey switch
     {
         "multiple-choice" => "Wielokrotny wybór",
+        "fill-in-blank" => "Uzupełnij lukę",
         _ => typeKey,
     };
-
-    private sealed record ExerciseOption(string Id, string Text);
 }

@@ -1,0 +1,43 @@
+@using System.Text.Json
+@inject ExerciseRendererCatalog RendererCatalog
+
+@if (_componentType is null)
+{
+    <div class="alert alert-error" role="alert">
+        Ten typ ćwiczenia nie ma jeszcze renderera w tej wersji aplikacji.
+    </div>
+}
+else
+{
+    <DynamicComponent Type="@_componentType" Parameters="@_parameters" />
+}
+
+@code {
+    [Parameter]
+    [EditorRequired]
+    public string TypeKey { get; set; } = string.Empty;
+
+    [Parameter]
+    public JsonElement Payload { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback<JsonElement?> ResponseChanged { get; set; }
+
+    private Type? _componentType;
+    private IDictionary<string, object> _parameters =
+        new Dictionary<string, object>();
+
+    protected override void OnParametersSet()
+    {
+        RendererCatalog.TryGet(TypeKey, out _componentType);
+        _parameters = new Dictionary<string, object>
+        {
+            [nameof(Payload)] = Payload,
+            [nameof(Disabled)] = Disabled,
+            [nameof(ResponseChanged)] = ResponseChanged,
+        };
+    }
+}

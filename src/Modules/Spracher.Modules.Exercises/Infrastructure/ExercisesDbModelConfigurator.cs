@@ -19,6 +19,11 @@ internal sealed class ExercisesDbModelConfigurator : IDbModelConfigurator
             entity.Property(definition => definition.Title).HasMaxLength(200).IsRequired();
             entity.Property(definition => definition.Description).HasMaxLength(1000);
             entity.HasIndex(definition => new { definition.TypeKey, definition.ArchivedAt });
+            entity.HasIndex(definition => definition.OwnerUserId);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(definition => definition.OwnerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasData(ExerciseSeedData.Definitions);
         });
 
@@ -31,6 +36,10 @@ internal sealed class ExercisesDbModelConfigurator : IDbModelConfigurator
                 {
                     table.HasCheckConstraint("CK_ExerciseVersions_Version", "\"VersionNumber\" > 0");
                     table.HasCheckConstraint("CK_ExerciseVersions_Schema", "\"SchemaVersion\" > 0");
+                    table.HasCheckConstraint(
+                        "CK_ExerciseVersions_Publication",
+                        "(\"Status\" = 'Draft' AND \"PublishedAt\" IS NULL) OR "
+                        + "(\"Status\" IN ('Published', 'Archived') AND \"PublishedAt\" IS NOT NULL)");
                 });
             entity.HasKey(version => version.Id);
             entity.Property(version => version.Prompt).HasMaxLength(2000).IsRequired();
@@ -47,6 +56,10 @@ internal sealed class ExercisesDbModelConfigurator : IDbModelConfigurator
                 version.Status,
                 version.VersionNumber,
             });
+            entity.HasIndex(version => version.ExerciseDefinitionId)
+                .IsUnique()
+                .HasFilter("\"Status\" = 'Draft'")
+                .HasDatabaseName("UX_ExerciseVersions_OneDraftPerDefinition");
             entity.HasOne<ExerciseDefinition>()
                 .WithMany()
                 .HasForeignKey(version => version.ExerciseDefinitionId)
@@ -59,11 +72,20 @@ internal sealed class ExercisesDbModelConfigurator : IDbModelConfigurator
             entity.ToTable(
                 "ExerciseAttempts",
                 "exercises",
-                table => table.HasCheckConstraint(
-                    "CK_ExerciseAttempts_Score",
-                    "(\"AwardedPoints\" IS NULL AND \"MaxPoints\" IS NULL) OR "
-                    + "(\"AwardedPoints\" >= 0 AND \"MaxPoints\" > 0 "
-                    + "AND \"AwardedPoints\" <= \"MaxPoints\")"));
+                table =>
+                {
+                    table.HasCheckConstraint(
+                        "CK_ExerciseAttempts_Score",
+                        "(\"AwardedPoints\" IS NULL AND \"MaxPoints\" IS NULL) OR "
+                        + "(\"AwardedPoints\" >= 0 AND \"MaxPoints\" > 0 "
+                        + "AND \"AwardedPoints\" <= \"MaxPoints\")");
+                    table.HasCheckConstraint(
+                        "CK_ExerciseAttempts_Lifecycle",
+                        "(\"Status\" = 'InProgress' AND \"CompletedAt\" IS NULL "
+                        + "AND \"AwardedPoints\" IS NULL AND \"MaxPoints\" IS NULL) OR "
+                        + "(\"Status\" = 'Completed' AND \"CompletedAt\" IS NOT NULL "
+                        + "AND \"AwardedPoints\" IS NOT NULL AND \"MaxPoints\" IS NOT NULL)");
+                });
             entity.HasKey(attempt => attempt.Id);
             entity.Property(attempt => attempt.Status).HasConversion<string>().HasMaxLength(20);
             entity.HasIndex(attempt => new { attempt.UserId, attempt.StartedAt });

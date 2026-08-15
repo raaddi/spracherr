@@ -20,4 +20,20 @@ internal sealed class ExerciseTypeRegistry
 
         return handler;
     }
+
+    public bool TryGet(
+        string typeKey,
+        int schemaVersion,
+        out IExerciseTypeHandler? handler)
+    {
+        if (_handlers.TryGetValue(typeKey, out var registered)
+            && registered.SchemaVersion == schemaVersion)
+        {
+            handler = registered;
+            return true;
+        }
+
+        handler = null;
+        return false;
+    }
 }

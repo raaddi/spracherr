@@ -11,12 +11,14 @@ public sealed class ExerciseDefinition
         string typeKey,
         string title,
         string? description,
+        Guid? ownerUserId,
         DateTimeOffset createdAt)
     {
         Id = id;
         TypeKey = typeKey;
         Title = title;
         Description = description;
+        OwnerUserId = ownerUserId;
         CreatedAt = createdAt;
     }
 
@@ -27,6 +29,8 @@ public sealed class ExerciseDefinition
     public string Title { get; private set; } = string.Empty;
 
     public string? Description { get; private set; }
+
+    public Guid? OwnerUserId { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
@@ -46,6 +50,31 @@ public sealed class ExerciseDefinition
             typeKey.Trim(),
             title.Trim(),
             NormalizeOptional(description),
+            ownerUserId: null,
+            createdAt);
+    }
+
+    public static ExerciseDefinition CreateOwned(
+        Guid ownerUserId,
+        string typeKey,
+        string title,
+        string? description,
+        DateTimeOffset createdAt)
+    {
+        if (ownerUserId == Guid.Empty)
+        {
+            throw new ArgumentException("Owner user ID cannot be empty.", nameof(ownerUserId));
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(typeKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(title);
+
+        return new ExerciseDefinition(
+            Guid.CreateVersion7(),
+            typeKey.Trim(),
+            title.Trim(),
+            NormalizeOptional(description),
+            ownerUserId,
             createdAt);
     }
 
