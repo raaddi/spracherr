@@ -16,12 +16,12 @@
         <DataAnnotationsValidator />
         <div class="field">
             <label for="login-email">E-mail</label>
-            <InputText id="login-email" type="email" autocomplete="email" @bind-Value="_model.Email" />
+            <InputTextOnInput id="login-email" type="email" autocomplete="email" @bind-Value="_model.Email" />
             <ValidationMessage For="@(() => _model.Email)" />
         </div>
         <div class="field">
             <label for="login-password">Hasło</label>
-            <InputText id="login-password" type="password" autocomplete="current-password" @bind-Value="_model.Password" />
+            <InputTextOnInput id="login-password" type="password" autocomplete="current-password" @bind-Value="_model.Password" />
             <ValidationMessage For="@(() => _model.Password)" />
         </div>
         <label class="check-row">

@@ -32,12 +32,12 @@
             </div>
             <div class="field">
                 <label for="profile-name">Nazwa wyświetlana</label>
-                <InputText id="profile-name" autocomplete="name" @bind-Value="_model.DisplayName" />
+                <InputTextOnInput id="profile-name" autocomplete="name" @bind-Value="_model.DisplayName" />
                 <ValidationMessage For="@(() => _model.DisplayName)" />
             </div>
             <div class="field">
                 <label for="profile-timezone">Strefa czasowa</label>
-                <InputText id="profile-timezone" autocomplete="off" @bind-Value="_model.TimeZoneId" />
+                <InputTextOnInput id="profile-timezone" autocomplete="off" @bind-Value="_model.TimeZoneId" />
                 <small>Identyfikator IANA, np. Europe/Warsaw.</small>
                 <ValidationMessage For="@(() => _model.TimeZoneId)" />
             </div>

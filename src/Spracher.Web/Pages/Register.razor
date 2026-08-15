@@ -22,23 +22,23 @@
             <DataAnnotationsValidator />
             <div class="field">
                 <label for="register-name">Nazwa wyświetlana</label>
-                <InputText id="register-name" autocomplete="name" @bind-Value="_model.DisplayName" />
+                <InputTextOnInput id="register-name" autocomplete="name" @bind-Value="_model.DisplayName" />
                 <ValidationMessage For="@(() => _model.DisplayName)" />
             </div>
             <div class="field">
                 <label for="register-email">E-mail</label>
-                <InputText id="register-email" type="email" autocomplete="email" @bind-Value="_model.Email" />
+                <InputTextOnInput id="register-email" type="email" autocomplete="email" @bind-Value="_model.Email" />
                 <ValidationMessage For="@(() => _model.Email)" />
             </div>
             <div class="field">
                 <label for="register-password">Hasło</label>
-                <InputText id="register-password" type="password" autocomplete="new-password" @bind-Value="_model.Password" />
+                <InputTextOnInput id="register-password" type="password" autocomplete="new-password" @bind-Value="_model.Password" />
                 <small>Minimum 10 znaków, mała i wielka litera, cyfra oraz znak specjalny.</small>
                 <ValidationMessage For="@(() => _model.Password)" />
             </div>
             <div class="field">
                 <label for="register-confirm">Powtórz hasło</label>
-                <InputText id="register-confirm" type="password" autocomplete="new-password" @bind-Value="_model.ConfirmPassword" />
+                <InputTextOnInput id="register-confirm" type="password" autocomplete="new-password" @bind-Value="_model.ConfirmPassword" />
                 <ValidationMessage For="@(() => _model.ConfirmPassword)" />
             </div>
             <button class="primary-button" type="submit" disabled="@_isSubmitting">
