@@ -1,6 +1,6 @@
 # Spracher — architektura systemu
 
-Status dokumentu: **architektura bazowa przyjęta; Vocabulary ukończone, Exercise Engine 3B działa pionowo**
+Status dokumentu: **architektura bazowa przyjęta; Vocabulary i Exercise Engine 3A–3C ukończone**
 Zakres: pierwsza wersja webowa/PWA oraz kierunek dalszego rozwoju SaaS  
 Docelowy stos: .NET 10, ASP.NET Core, Blazor WebAssembly PWA, EF Core, PostgreSQL, SignalR
 
@@ -289,8 +289,8 @@ Opublikowana rewizja jest niemutowalna. Zmiana tworzy kolejną wersję roboczą.
 | `ExerciseDefinition` | stabilna tożsamość ćwiczenia, `TypeKey`, metadane i archiwizacja |
 | `ExerciseVersion` | numer wersji, `SchemaVersion`, polecenie, typowany payload JSONB, status i data publikacji |
 | `ExerciseSet` | uporządkowana grupa przypiętych wersji ćwiczeń |
-| `ExerciseSetItem` | M:N z kolejnością, wagą i opcjonalnymi warunkami |
-| `ExerciseAttempt` | użytkownik, przypięta wersja, sesja, rozpoczęcie/zakończenie, wynik i status |
+| `ExerciseSetItem` | przypięta wersja ćwiczenia i jednoznaczna pozycja w zestawie |
+| `ExerciseAttempt` | użytkownik, przypięta wersja, opcjonalna pozycja źródłowego zestawu, rozpoczęcie/zakończenie, wynik i status |
 | `ExerciseSubmission` | odpowiedź użytkownika w wersjonowanym payloadzie, wynik oceny i bezpieczny feedback |
 
 Silnik używa rejestru handlerów, np. `IExerciseTypeHandler`, rozdzielonego na:
@@ -306,7 +306,7 @@ Dodanie nowego rodzaju zwykle wymaga nowego handlera i komponentu UI, ale nie no
 
 Klucze odpowiedzi nigdy nie trafiają do publicznego DTO. Próba wiąże się z dokładną `ExerciseVersion`, nie z „najnowszą wersją”.
 
-Slice 3A–3B implementuje tabele `ExerciseDefinitions`, `ExerciseVersions`, `ExerciseAttempts` i `ExerciseSubmissions`, handlery `MultipleChoice` i `FillInBlank`, rejestrowane renderery Blazor pod `/practice` oraz authoring API chronione rolą `Admin`. Nowa definicja zaczyna jako draft, przechodzi walidację handlerem i dopiero jawna publikacja udostępnia ją w katalogu. Jeden filtrowany indeks unikalny dopuszcza najwyżej jeden draft definicji, a próba zachowuje dokładną wersję także po publikacji kolejnej. `ExerciseSet`, `Translation` i pełny panel autora pozostają na następne przyrosty. Klucz odpowiedzi pozostaje wyłącznie w serwerowym JSONB; publiczny payload zawiera tylko dane potrzebne rendererowi.
+Slice 3A–3C implementuje tabele definicji, wersji, zestawów, pozycji zestawu, prób i odpowiedzi, handlery `MultipleChoice`, `FillInBlank` i `Translation` oraz rejestrowane renderery Blazor pod `/practice`. Nowa definicja zaczyna jako draft, przechodzi walidację handlerem i dopiero jawna publikacja udostępnia ją w katalogu. `ExerciseSet` również ma workflow draft → publikacja, a każda pozycja przypina konkretną opublikowaną wersję. Próba rozpoczęta z zestawu zapisuje `ExerciseSetItemId`, dlatego źródło i kolejność są audytowalne. Klucz odpowiedzi pozostaje wyłącznie w serwerowym JSONB; publiczny payload zawiera tylko dane potrzebne rendererowi.
 
 Docelowy katalog typów i jego etapowanie:
 
@@ -314,7 +314,7 @@ Docelowy katalog typów i jego etapowanie:
 |---|---|---|
 | `MultipleChoice` | jedna/wiele odpowiedzi, losowanie kontrolowane seedem | slice 3A — działa |
 | `FillInBlank` | jedna lub kilka luk, akceptowane warianty odpowiedzi | slice 3B — działa |
-| `Translation` | krótkie odpowiedzi z wieloma akceptowanymi wariantami | slice 3C |
+| `Translation` | krótkie odpowiedzi z wieloma akceptowanymi wariantami | slice 3C — działa |
 | `WriteWord` | zapis formy/leksemu na podstawie wskazówki | następny przyrost |
 | `MatchPairs` | dwie kolekcje i mapa par | następny przyrost |
 | `SentenceOrdering` | tokeny i poprawne sekwencje | następny przyrost |

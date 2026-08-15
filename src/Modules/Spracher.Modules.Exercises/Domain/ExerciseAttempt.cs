@@ -6,11 +6,16 @@ public sealed class ExerciseAttempt
     {
     }
 
-    private ExerciseAttempt(Guid userId, Guid exerciseVersionId, DateTimeOffset startedAt)
+    private ExerciseAttempt(
+        Guid userId,
+        Guid exerciseVersionId,
+        Guid? exerciseSetItemId,
+        DateTimeOffset startedAt)
     {
         Id = Guid.CreateVersion7();
         UserId = userId;
         ExerciseVersionId = exerciseVersionId;
+        ExerciseSetItemId = exerciseSetItemId;
         Status = ExerciseAttemptStatus.InProgress;
         StartedAt = startedAt;
     }
@@ -20,6 +25,8 @@ public sealed class ExerciseAttempt
     public Guid UserId { get; private set; }
 
     public Guid ExerciseVersionId { get; private set; }
+
+    public Guid? ExerciseSetItemId { get; private set; }
 
     public ExerciseAttemptStatus Status { get; private set; }
 
@@ -48,7 +55,25 @@ public sealed class ExerciseAttempt
                 nameof(exerciseVersionId));
         }
 
-        return new ExerciseAttempt(userId, exerciseVersionId, startedAt);
+        return new ExerciseAttempt(userId, exerciseVersionId, exerciseSetItemId: null, startedAt);
+    }
+
+    public static ExerciseAttempt StartFromSet(
+        Guid userId,
+        Guid exerciseVersionId,
+        Guid exerciseSetItemId,
+        DateTimeOffset startedAt)
+    {
+        if (exerciseSetItemId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Exercise set item ID cannot be empty.",
+                nameof(exerciseSetItemId));
+        }
+
+        var attempt = Start(userId, exerciseVersionId, startedAt);
+        attempt.ExerciseSetItemId = exerciseSetItemId;
+        return attempt;
     }
 
     public void Complete(int awardedPoints, int maxPoints, DateTimeOffset completedAt)

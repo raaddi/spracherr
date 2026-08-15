@@ -92,7 +92,7 @@ Kryterium ukończenia:
 
 ## Etap 3 — Exercise Engine
 
-Status: **w toku — slice 3B ukończony 2026-08-15**. Działają `ExerciseDefinition`, niemutowalna po publikacji `ExerciseVersion`, próba i zapis odpowiedzi, rejestr handlerów, typy `MultipleChoice` i `FillInBlank`, osobne renderery Blazor oraz authoring API z workflow draft → walidacja → publikacja. Bezpieczne DTO nie ujawnia klucza odpowiedzi. Scenariusz publikacji dwóch wersji potwierdził na lokalnym PostgreSQL 17, że rozpoczęta wcześniej próba nadal jest oceniana według przypiętej starszej wersji.
+Status: **ukończony 2026-08-15 — slice 3A–3C**. Działają `ExerciseDefinition`, niemutowalna po publikacji `ExerciseVersion`, próby i odpowiedzi, rejestr handlerów oraz typy `MultipleChoice`, `FillInBlank` i `Translation`. `ExerciseSet` grupuje uporządkowane, przypięte wersje, a próba zapisuje źródłową pozycję zestawu. Authoring API realizuje draft → publikacja dla definicji i zestawów. Pełna sekwencja trzech ćwiczeń została sprawdzona w PWA i na lokalnym PostgreSQL 17 bez ujawnienia kluczy odpowiedzi.
 
 Cel: jeden wspólny lifecycle ćwiczeń sprawdzony na kilku rzeczywiście różnych typach.
 
@@ -282,4 +282,4 @@ Zakres zależny od danych z produkcji:
 
 ## Następne zadanie implementacyjne
 
-Kolejne osobne zadanie powinno dotyczyć **Etapu 3C — `ExerciseSet` i `Translation`**: grupowanie przypiętych wersji ćwiczeń w uporządkowany zestaw oraz trzeci handler i renderer wykorzystujący wiele akceptowanych wariantów odpowiedzi. Content Engine i pełny panel autora pozostają poza tym przyrostem.
+Kolejne osobne zadanie powinno rozpocząć **Etap 4A — szkielet Content Engine**: `Course`, `CourseLevel`, `Unit`, `Topic` i niemutowalna `TopicRevision`, dwa pierwsze typy bloków (`RichText`, `Example`) oraz mały opublikowany temat English Grammar A0/A1. Pełny WYSIWYG, media i rozbudowany panel autora pozostają poza pierwszym przyrostem.

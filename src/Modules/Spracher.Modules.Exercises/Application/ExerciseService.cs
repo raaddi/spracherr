@@ -52,6 +52,60 @@ internal sealed class ExerciseService(
         return new ExerciseCatalogResponse(items);
     }
 
+    public async Task<ExerciseSetCatalogResponse> GetSetCatalogAsync(
+        CancellationToken cancellationToken)
+    {
+        var rows = await (
+                from set in dbContext.Set<ExerciseSet>().AsNoTracking()
+                join item in dbContext.Set<ExerciseSetItem>().AsNoTracking()
+                    on set.Id equals item.ExerciseSetId
+                join version in dbContext.Set<ExerciseVersion>().AsNoTracking()
+                    on item.ExerciseVersionId equals version.Id
+                join definition in dbContext.Set<ExerciseDefinition>().AsNoTracking()
+                    on version.ExerciseDefinitionId equals definition.Id
+                where set.Status == ExerciseSetStatus.Published
+                      && version.Status == ExerciseVersionStatus.Published
+                      && definition.ArchivedAt == null
+                orderby set.Title, item.Position
+                select new
+                {
+                    SetId = set.Id,
+                    set.Title,
+                    set.Description,
+                    ItemId = item.Id,
+                    item.Position,
+                    DefinitionId = definition.Id,
+                    ExerciseVersionId = version.Id,
+                    definition.TypeKey,
+                    ExerciseTitle = definition.Title,
+                    version.Prompt,
+                    version.VersionNumber,
+                })
+            .ToArrayAsync(cancellationToken);
+
+        var sets = rows
+            .GroupBy(row => new { row.SetId, row.Title, row.Description })
+            .Select(group => new ExerciseSetCatalogItemResponse(
+                group.Key.SetId,
+                group.Key.Title,
+                group.Key.Description,
+                group
+                    .OrderBy(row => row.Position)
+                    .Select(row => new ExerciseSetItemResponse(
+                        row.ItemId,
+                        row.Position,
+                        row.DefinitionId,
+                        row.ExerciseVersionId,
+                        row.TypeKey,
+                        row.ExerciseTitle,
+                        row.Prompt,
+                        row.VersionNumber))
+                    .ToArray()))
+            .ToArray();
+
+        return new ExerciseSetCatalogResponse(sets);
+    }
+
     public async Task<ExerciseResult<ExercisePlayResponse>> StartAttemptAsync(
         Guid userId,
         Guid definitionId,
@@ -72,29 +126,84 @@ internal sealed class ExerciseService(
             return ExerciseResult<ExercisePlayResponse>.NotFound();
         }
 
-        var handler = typeRegistry.GetRequired(row.Definition.TypeKey, row.Version.SchemaVersion);
-        var validation = handler.ValidateDefinition(row.Version.DefinitionJson);
+        return await StartAttemptForVersionAsync(
+            userId,
+            row.Definition,
+            row.Version,
+            exerciseSetItemId: null,
+            cancellationToken);
+    }
+
+    public async Task<ExerciseResult<ExercisePlayResponse>> StartSetItemAttemptAsync(
+        Guid userId,
+        Guid setId,
+        Guid itemId,
+        CancellationToken cancellationToken)
+    {
+        var row = await (
+                from set in dbContext.Set<ExerciseSet>().AsNoTracking()
+                join item in dbContext.Set<ExerciseSetItem>().AsNoTracking()
+                    on set.Id equals item.ExerciseSetId
+                join version in dbContext.Set<ExerciseVersion>().AsNoTracking()
+                    on item.ExerciseVersionId equals version.Id
+                join definition in dbContext.Set<ExerciseDefinition>().AsNoTracking()
+                    on version.ExerciseDefinitionId equals definition.Id
+                where set.Id == setId
+                      && item.Id == itemId
+                      && set.Status == ExerciseSetStatus.Published
+                      && version.Status == ExerciseVersionStatus.Published
+                      && definition.ArchivedAt == null
+                select new { Item = item, Definition = definition, Version = version })
+            .SingleOrDefaultAsync(cancellationToken);
+        if (row is null)
+        {
+            return ExerciseResult<ExercisePlayResponse>.NotFound();
+        }
+
+        return await StartAttemptForVersionAsync(
+            userId,
+            row.Definition,
+            row.Version,
+            row.Item.Id,
+            cancellationToken);
+    }
+
+    private async Task<ExerciseResult<ExercisePlayResponse>> StartAttemptForVersionAsync(
+        Guid userId,
+        ExerciseDefinition definition,
+        ExerciseVersion version,
+        Guid? exerciseSetItemId,
+        CancellationToken cancellationToken)
+    {
+        var handler = typeRegistry.GetRequired(definition.TypeKey, version.SchemaVersion);
+        var validation = handler.ValidateDefinition(version.DefinitionJson);
         if (!validation.IsValid)
         {
             throw new InvalidOperationException(
-                $"Published exercise version '{row.Version.Id}' has an invalid definition.");
+                $"Published exercise version '{version.Id}' has an invalid definition.");
         }
 
-        var attempt = ExerciseAttempt.Start(userId, row.Version.Id, clock.UtcNow);
+        var attempt = exerciseSetItemId.HasValue
+            ? ExerciseAttempt.StartFromSet(
+                userId,
+                version.Id,
+                exerciseSetItemId.Value,
+                clock.UtcNow)
+            : ExerciseAttempt.Start(userId, version.Id, clock.UtcNow);
         dbContext.Add(attempt);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         using var payloadDocument = JsonDocument.Parse(
-            handler.CreateClientPayload(row.Version.DefinitionJson));
+            handler.CreateClientPayload(version.DefinitionJson));
         return ExerciseResult<ExercisePlayResponse>.Success(
             new ExercisePlayResponse(
                 attempt.Id,
-                row.Definition.Id,
-                row.Version.Id,
-                row.Definition.TypeKey,
-                row.Version.SchemaVersion,
-                row.Definition.Title,
-                row.Version.Prompt,
+                definition.Id,
+                version.Id,
+                definition.TypeKey,
+                version.SchemaVersion,
+                definition.Title,
+                version.Prompt,
                 payloadDocument.RootElement.Clone(),
                 attempt.StartedAt));
     }

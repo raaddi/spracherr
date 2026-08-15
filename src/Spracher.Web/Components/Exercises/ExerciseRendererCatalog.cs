@@ -7,6 +7,7 @@ public sealed class ExerciseRendererCatalog
         {
             ["multiple-choice"] = typeof(MultipleChoiceExerciseRenderer),
             ["fill-in-blank"] = typeof(FillInBlankExerciseRenderer),
+            ["translation"] = typeof(TranslationExerciseRenderer),
         };
 
     public bool TryGet(string typeKey, out Type? componentType) =>

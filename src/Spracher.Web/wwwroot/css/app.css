@@ -501,6 +501,35 @@ h1 {
     font-size: clamp(2.5rem, 8vw, 5rem);
 }
 
+.practice-section {
+    display: grid;
+    gap: 1rem;
+    margin-top: 2.5rem;
+}
+
+.practice-section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #aaa79d;
+}
+
+.practice-section-heading h2 {
+    margin: 0.25rem 0 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.6rem, 4vw, 2.35rem);
+}
+
+.practice-section-heading > span {
+    padding: 0.3rem 0.55rem;
+    border: 1px solid #b9b5aa;
+    color: #526560;
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
 .exercise-catalog {
     display: grid;
     gap: 1rem;
@@ -516,6 +545,46 @@ h1 {
     border-radius: var(--card-radius);
     background: var(--surface);
     box-shadow: 0 0.8rem 2.2rem rgba(23, 49, 45, 0.05);
+}
+
+.exercise-set-card {
+    border-left-color: #9a7a3f;
+}
+
+.exercise-set-preview {
+    display: grid;
+    gap: 0.55rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.exercise-set-preview li {
+    display: grid;
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+    gap: 0.7rem;
+    align-items: start;
+}
+
+.exercise-set-preview li > span:first-child {
+    display: grid;
+    place-items: center;
+    width: 1.65rem;
+    height: 1.65rem;
+    border: 1px solid #aaa79d;
+    color: #6a5b3d;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.exercise-set-preview li > span:last-child {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.exercise-set-preview strong {
+    color: #213b36;
+    font-size: 0.9rem;
 }
 
 .exercise-catalog-card h2,
@@ -664,6 +733,48 @@ h1 {
 .fill-blank-sentence input:focus {
     outline: 0.2rem solid rgba(40, 107, 94, 0.2);
     outline-offset: 0.1rem;
+}
+
+.translation-exercise {
+    display: grid;
+    gap: 1rem;
+}
+
+.translation-direction {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: #65756f;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+}
+
+.translation-exercise blockquote {
+    margin: 0;
+    padding: 1rem 1.15rem;
+    border-left: 3px solid #9a7a3f;
+    background: #eeece3;
+    color: #17312d;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
+    line-height: 1.25;
+}
+
+.translation-exercise label {
+    color: #17312d;
+    font-weight: 700;
+}
+
+.translation-exercise textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 6.5rem;
+    padding: 0.85rem;
+    border: 1px solid #9ba8a3;
+    border-radius: var(--control-radius);
+    color: #17312d;
+    background: #fffef9;
 }
 
 .fill-blank-sentence input:disabled {

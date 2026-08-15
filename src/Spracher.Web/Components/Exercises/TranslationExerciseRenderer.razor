@@ -1,0 +1,65 @@
+@using System.Text.Json
+
+<div class="translation-exercise">
+    <div class="translation-direction" aria-label="Kierunek tłumaczenia">
+        <span>@_sourceLanguageCode.ToUpperInvariant()</span>
+        <span aria-hidden="true">→</span>
+        <span>@_targetLanguageCode.ToUpperInvariant()</span>
+    </div>
+    <blockquote>@_sourceText</blockquote>
+    <label for="translation-answer">Twoje tłumaczenie</label>
+    <textarea id="translation-answer"
+              rows="3"
+              disabled="@Disabled"
+              autocomplete="off"
+              value="@_answer"
+              @oninput="ChangeAnswerAsync"></textarea>
+</div>
+
+@code {
+    [Parameter]
+    public JsonElement Payload { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback<JsonElement?> ResponseChanged { get; set; }
+
+    private string _sourceText = string.Empty;
+    private string _sourceLanguageCode = string.Empty;
+    private string _targetLanguageCode = string.Empty;
+    private string _answer = string.Empty;
+    private string? _loadedPayload;
+
+    protected override void OnParametersSet()
+    {
+        var payloadJson = Payload.GetRawText();
+        if (string.Equals(payloadJson, _loadedPayload, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedPayload = payloadJson;
+        _sourceText = Payload.GetProperty("sourceText").GetString() ?? string.Empty;
+        _sourceLanguageCode =
+            Payload.GetProperty("sourceLanguageCode").GetString() ?? string.Empty;
+        _targetLanguageCode =
+            Payload.GetProperty("targetLanguageCode").GetString() ?? string.Empty;
+        _answer = string.Empty;
+    }
+
+    private async Task ChangeAnswerAsync(ChangeEventArgs args)
+    {
+        _answer = args.Value?.ToString() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(_answer))
+        {
+            await ResponseChanged.InvokeAsync(null);
+            return;
+        }
+
+        var responseJson = JsonSerializer.Serialize(new { answer = _answer });
+        using var document = JsonDocument.Parse(responseJson);
+        await ResponseChanged.InvokeAsync(document.RootElement.Clone());
+    }
+}

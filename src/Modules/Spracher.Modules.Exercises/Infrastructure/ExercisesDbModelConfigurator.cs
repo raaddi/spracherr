@@ -67,6 +67,53 @@ internal sealed class ExercisesDbModelConfigurator : IDbModelConfigurator
             entity.HasData(ExerciseSeedData.Versions);
         });
 
+        modelBuilder.Entity<ExerciseSet>(entity =>
+        {
+            entity.ToTable(
+                "ExerciseSets",
+                "exercises",
+                table => table.HasCheckConstraint(
+                    "CK_ExerciseSets_Publication",
+                    "(\"Status\" = 'Draft' AND \"PublishedAt\" IS NULL) OR "
+                    + "(\"Status\" IN ('Published', 'Archived') "
+                    + "AND \"PublishedAt\" IS NOT NULL)"));
+            entity.HasKey(set => set.Id);
+            entity.Property(set => set.Title).HasMaxLength(200).IsRequired();
+            entity.Property(set => set.Description).HasMaxLength(1000);
+            entity.Property(set => set.Status).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(set => new { set.Status, set.PublishedAt });
+            entity.HasIndex(set => set.OwnerUserId);
+            entity.HasOne<ApplicationUser>()
+                .WithMany()
+                .HasForeignKey(set => set.OwnerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasData(ExerciseSeedData.Sets);
+        });
+
+        modelBuilder.Entity<ExerciseSetItem>(entity =>
+        {
+            entity.ToTable(
+                "ExerciseSetItems",
+                "exercises",
+                table => table.HasCheckConstraint(
+                    "CK_ExerciseSetItems_Position",
+                    "\"Position\" > 0"));
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.ExerciseSetId, item.Position }).IsUnique();
+            entity.HasIndex(item => new { item.ExerciseSetId, item.ExerciseVersionId })
+                .IsUnique();
+            entity.HasIndex(item => item.ExerciseVersionId);
+            entity.HasOne<ExerciseSet>()
+                .WithMany()
+                .HasForeignKey(item => item.ExerciseSetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<ExerciseVersion>()
+                .WithMany()
+                .HasForeignKey(item => item.ExerciseVersionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasData(ExerciseSeedData.SetItems);
+        });
+
         modelBuilder.Entity<ExerciseAttempt>(entity =>
         {
             entity.ToTable(
@@ -90,6 +137,7 @@ internal sealed class ExercisesDbModelConfigurator : IDbModelConfigurator
             entity.Property(attempt => attempt.Status).HasConversion<string>().HasMaxLength(20);
             entity.HasIndex(attempt => new { attempt.UserId, attempt.StartedAt });
             entity.HasIndex(attempt => attempt.ExerciseVersionId);
+            entity.HasIndex(attempt => attempt.ExerciseSetItemId);
             entity.HasOne<ApplicationUser>()
                 .WithMany()
                 .HasForeignKey(attempt => attempt.UserId)
@@ -97,6 +145,10 @@ internal sealed class ExercisesDbModelConfigurator : IDbModelConfigurator
             entity.HasOne<ExerciseVersion>()
                 .WithMany()
                 .HasForeignKey(attempt => attempt.ExerciseVersionId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ExerciseSetItem>()
+                .WithMany()
+                .HasForeignKey(attempt => attempt.ExerciseSetItemId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

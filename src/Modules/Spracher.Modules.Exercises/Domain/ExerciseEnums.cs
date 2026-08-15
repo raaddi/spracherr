@@ -12,3 +12,10 @@ public enum ExerciseAttemptStatus
     InProgress = 0,
     Completed = 1,
 }
+
+public enum ExerciseSetStatus
+{
+    Draft = 0,
+    Published = 1,
+    Archived = 2,
+}

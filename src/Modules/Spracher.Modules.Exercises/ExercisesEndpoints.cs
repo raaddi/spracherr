@@ -29,6 +29,14 @@ public static class ExercisesEndpoints
             .WithTags("Exercises")
             .WithName("SubmitExerciseAttempt");
 
+        var sets = endpoints.MapGroup("/api/v1/exercise-sets")
+            .WithTags("Exercise sets");
+        sets.MapGet("/", GetSetCatalog).WithName("GetExerciseSetCatalog");
+        sets.MapPost("/{setId:guid}/items/{itemId:guid}/attempts", StartSetItemAttempt)
+            .RequireAuthorization()
+            .WithMetadata(new RequireAntiforgeryTokenAttribute(true))
+            .WithName("StartExerciseSetItemAttempt");
+
         var authoring = endpoints.MapGroup("/api/v1/exercise-authoring")
             .WithTags("Exercise authoring")
             .RequireAuthorization(policy => policy.RequireRole(SystemRoles.Admin));
@@ -41,6 +49,12 @@ public static class ExercisesEndpoints
         authoring.MapPost("/versions/{versionId:guid}/publish", PublishVersion)
             .WithMetadata(new RequireAntiforgeryTokenAttribute(true))
             .WithName("PublishExerciseVersion");
+        authoring.MapPost("/sets", CreateSet)
+            .WithMetadata(new RequireAntiforgeryTokenAttribute(true))
+            .WithName("CreateExerciseSet");
+        authoring.MapPost("/sets/{setId:guid}/publish", PublishSet)
+            .WithMetadata(new RequireAntiforgeryTokenAttribute(true))
+            .WithName("PublishExerciseSet");
 
         return endpoints;
     }
@@ -58,6 +72,27 @@ public static class ExercisesEndpoints
         TryGetUserId(principal, out var userId)
             ? MapResult(
                 await service.StartAttemptAsync(userId, definitionId, cancellationToken),
+                Results.Ok)
+            : Results.Unauthorized();
+
+    private static async Task<IResult> GetSetCatalog(
+        ExerciseService service,
+        CancellationToken cancellationToken) =>
+        Results.Ok(await service.GetSetCatalogAsync(cancellationToken));
+
+    private static async Task<IResult> StartSetItemAttempt(
+        Guid setId,
+        Guid itemId,
+        ClaimsPrincipal principal,
+        ExerciseService service,
+        CancellationToken cancellationToken) =>
+        TryGetUserId(principal, out var userId)
+            ? MapResult(
+                await service.StartSetItemAttemptAsync(
+                    userId,
+                    setId,
+                    itemId,
+                    cancellationToken),
                 Results.Ok)
             : Results.Unauthorized();
 
@@ -107,6 +142,27 @@ public static class ExercisesEndpoints
         CancellationToken cancellationToken) =>
         MapResult(
             await service.PublishVersionAsync(versionId, cancellationToken),
+            Results.Ok);
+
+    private static async Task<IResult> CreateSet(
+        ClaimsPrincipal principal,
+        CreateExerciseSetRequest request,
+        ExerciseAuthoringService service,
+        CancellationToken cancellationToken) =>
+        TryGetUserId(principal, out var userId)
+            ? MapResult(
+                await service.CreateSetAsync(userId, request, cancellationToken),
+                value => Results.Created(
+                    $"/api/v1/exercise-authoring/sets/{value.SetId}",
+                    value))
+            : Results.Unauthorized();
+
+    private static async Task<IResult> PublishSet(
+        Guid setId,
+        ExerciseAuthoringService service,
+        CancellationToken cancellationToken) =>
+        MapResult(
+            await service.PublishSetAsync(setId, cancellationToken),
             Results.Ok);
 
     private static IResult MapResult<T>(

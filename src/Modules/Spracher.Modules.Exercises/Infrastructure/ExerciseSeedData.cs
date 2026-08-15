@@ -20,6 +20,15 @@ internal static class ExerciseSeedData
     public static readonly Guid FillInBlankVersionId =
         Guid.Parse("0198b110-0000-7000-8000-000000000002");
 
+    public static readonly Guid TranslationDefinitionId =
+        Guid.Parse("0198b100-0000-7000-8000-000000000003");
+
+    public static readonly Guid TranslationVersionId =
+        Guid.Parse("0198b110-0000-7000-8000-000000000003");
+
+    public static readonly Guid PresentSimpleSetId =
+        Guid.Parse("0198b120-0000-7000-8000-000000000001");
+
     public static IReadOnlyList<ExerciseDefinition> Definitions { get; } =
     [
         new(
@@ -34,6 +43,13 @@ internal static class ExerciseSeedData
             ExerciseTypeKeys.FillInBlank,
             "Present Simple: missing verb",
             "Complete the sentence with the correct third-person verb form.",
+            ownerUserId: null,
+            SeededAt),
+        new(
+            TranslationDefinitionId,
+            ExerciseTypeKeys.Translation,
+            "Present Simple: translate a sentence",
+            "Translate a short Present Simple sentence into Polish.",
             ownerUserId: null,
             SeededAt),
     ];
@@ -86,5 +102,63 @@ internal static class ExerciseSeedData
             ExerciseVersionStatus.Published,
             SeededAt,
             SeededAt),
+        new(
+            TranslationVersionId,
+            TranslationDefinitionId,
+            versionNumber: 1,
+            schemaVersion: 1,
+            "Translate the sentence into Polish.",
+            """
+            {
+              "sourceText": "She goes to school every day.",
+              "sourceLanguageCode": "en",
+              "targetLanguageCode": "pl",
+              "acceptedAnswers": [
+                "Ona chodzi do szkoły codziennie.",
+                "Ona codziennie chodzi do szkoły."
+              ],
+              "caseSensitive": false,
+              "trimWhitespace": true,
+              "collapseWhitespace": true,
+              "ignoreTerminalPunctuation": true,
+              "points": 10,
+              "correctFeedback": "Correct — both natural word orders are accepted.",
+              "incorrectFeedback": "Check the verb form and the phrase every day."
+            }
+            """,
+            ExerciseVersionStatus.Published,
+            SeededAt,
+            SeededAt),
+    ];
+
+    public static IReadOnlyList<ExerciseSet> Sets { get; } =
+    [
+        new(
+            PresentSimpleSetId,
+            "Present Simple: quick practice",
+            "Three short exercises covering the third-person singular.",
+            ownerUserId: null,
+            ExerciseSetStatus.Published,
+            SeededAt,
+            SeededAt),
+    ];
+
+    public static IReadOnlyList<ExerciseSetItem> SetItems { get; } =
+    [
+        new(
+            Guid.Parse("0198b130-0000-7000-8000-000000000001"),
+            PresentSimpleSetId,
+            PresentSimpleVersionId,
+            position: 1),
+        new(
+            Guid.Parse("0198b130-0000-7000-8000-000000000002"),
+            PresentSimpleSetId,
+            FillInBlankVersionId,
+            position: 2),
+        new(
+            Guid.Parse("0198b130-0000-7000-8000-000000000003"),
+            PresentSimpleSetId,
+            TranslationVersionId,
+            position: 3),
     ];
 }

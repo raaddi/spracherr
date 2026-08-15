@@ -20,6 +20,8 @@ public static class ExercisesModule
             ServiceDescriptor.Singleton<IExerciseTypeHandler, MultipleChoiceExerciseHandler>());
         services.TryAddEnumerable(
             ServiceDescriptor.Singleton<IExerciseTypeHandler, FillInBlankExerciseHandler>());
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IExerciseTypeHandler, TranslationExerciseHandler>());
         services.AddSingleton<ExerciseTypeRegistry>();
         services.AddScoped<ExerciseService>();
         services.AddScoped<ExerciseAuthoringService>();

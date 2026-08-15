@@ -58,3 +58,35 @@ public sealed record ExerciseAuthoringVersionResponse(
     string Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset? PublishedAt);
+
+public sealed record ExerciseSetCatalogResponse(
+    IReadOnlyList<ExerciseSetCatalogItemResponse> Items);
+
+public sealed record ExerciseSetCatalogItemResponse(
+    Guid SetId,
+    string Title,
+    string? Description,
+    IReadOnlyList<ExerciseSetItemResponse> Exercises);
+
+public sealed record ExerciseSetItemResponse(
+    Guid ItemId,
+    int Position,
+    Guid DefinitionId,
+    Guid ExerciseVersionId,
+    string TypeKey,
+    string Title,
+    string Prompt,
+    int VersionNumber);
+
+public sealed record CreateExerciseSetRequest(
+    string Title,
+    string? Description,
+    IReadOnlyList<Guid> ExerciseVersionIds);
+
+public sealed record ExerciseSetAuthoringResponse(
+    Guid SetId,
+    string Title,
+    string Status,
+    int ExerciseCount,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? PublishedAt);

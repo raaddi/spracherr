@@ -180,6 +180,112 @@ internal sealed class ExerciseAuthoringService(
             MapResponse(definition, version));
     }
 
+    public async Task<ExerciseResult<ExerciseSetAuthoringResponse>> CreateSetAsync(
+        Guid ownerUserId,
+        CreateExerciseSetRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 200)
+        {
+            return ExerciseResult<ExerciseSetAuthoringResponse>.Validation(
+                "title",
+                "Title is required and cannot exceed 200 characters.");
+        }
+
+        if (request.Description?.Trim().Length > 1000)
+        {
+            return ExerciseResult<ExerciseSetAuthoringResponse>.Validation(
+                "description",
+                "Description cannot exceed 1000 characters.");
+        }
+
+        if (request.ExerciseVersionIds is null
+            || request.ExerciseVersionIds.Count is < 1 or > 50
+            || request.ExerciseVersionIds.Any(id => id == Guid.Empty)
+            || request.ExerciseVersionIds.Distinct().Count()
+                != request.ExerciseVersionIds.Count)
+        {
+            return ExerciseResult<ExerciseSetAuthoringResponse>.Validation(
+                "exerciseVersionIds",
+                "Provide between 1 and 50 unique exercise version IDs.");
+        }
+
+        var validVersionCount = await (
+                from version in dbContext.Set<ExerciseVersion>().AsNoTracking()
+                join definition in dbContext.Set<ExerciseDefinition>().AsNoTracking()
+                    on version.ExerciseDefinitionId equals definition.Id
+                where request.ExerciseVersionIds.Contains(version.Id)
+                      && version.Status == ExerciseVersionStatus.Published
+                      && definition.ArchivedAt == null
+                select version.Id)
+            .CountAsync(cancellationToken);
+        if (validVersionCount != request.ExerciseVersionIds.Count)
+        {
+            return ExerciseResult<ExerciseSetAuthoringResponse>.Validation(
+                "exerciseVersionIds",
+                "Every set item must reference an active, published exercise version.");
+        }
+
+        var set = ExerciseSet.CreateDraft(
+            ownerUserId,
+            request.Title,
+            request.Description,
+            clock.UtcNow);
+        var items = request.ExerciseVersionIds
+            .Select((versionId, index) => ExerciseSetItem.Create(set.Id, versionId, index + 1))
+            .ToArray();
+        dbContext.Add(set);
+        dbContext.AddRange(items);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ExerciseResult<ExerciseSetAuthoringResponse>.Success(
+            MapSetResponse(set, items.Length));
+    }
+
+    public async Task<ExerciseResult<ExerciseSetAuthoringResponse>> PublishSetAsync(
+        Guid setId,
+        CancellationToken cancellationToken)
+    {
+        var set = await dbContext.Set<ExerciseSet>()
+            .SingleOrDefaultAsync(item => item.Id == setId, cancellationToken);
+        if (set is null)
+        {
+            return ExerciseResult<ExerciseSetAuthoringResponse>.NotFound();
+        }
+
+        if (set.Status != ExerciseSetStatus.Draft)
+        {
+            return ExerciseResult<ExerciseSetAuthoringResponse>.Conflict(
+                "setId",
+                "Only a draft exercise set can be published.");
+        }
+
+        var itemCount = await dbContext.Set<ExerciseSetItem>()
+            .CountAsync(item => item.ExerciseSetId == setId, cancellationToken);
+        var validItemCount = await (
+                from item in dbContext.Set<ExerciseSetItem>().AsNoTracking()
+                join version in dbContext.Set<ExerciseVersion>().AsNoTracking()
+                    on item.ExerciseVersionId equals version.Id
+                join definition in dbContext.Set<ExerciseDefinition>().AsNoTracking()
+                    on version.ExerciseDefinitionId equals definition.Id
+                where item.ExerciseSetId == setId
+                      && version.Status == ExerciseVersionStatus.Published
+                      && definition.ArchivedAt == null
+                select item.Id)
+            .CountAsync(cancellationToken);
+        if (itemCount == 0 || itemCount != validItemCount)
+        {
+            return ExerciseResult<ExerciseSetAuthoringResponse>.Validation(
+                "items",
+                "Every set item must reference an active, published exercise version.");
+        }
+
+        set.Publish(clock.UtcNow);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return ExerciseResult<ExerciseSetAuthoringResponse>.Success(
+            MapSetResponse(set, itemCount));
+    }
+
     private IReadOnlyDictionary<string, string[]>? ValidatePayload(
         string typeKey,
         int schemaVersion,
@@ -263,4 +369,15 @@ internal sealed class ExerciseAuthoringService(
             version.Status.ToString(),
             version.CreatedAt,
             version.PublishedAt);
+
+    private static ExerciseSetAuthoringResponse MapSetResponse(
+        ExerciseSet set,
+        int exerciseCount) =>
+        new(
+            set.Id,
+            set.Title,
+            set.Status.ToString(),
+            exerciseCount,
+            set.CreatedAt,
+            set.PublishedAt);
 }

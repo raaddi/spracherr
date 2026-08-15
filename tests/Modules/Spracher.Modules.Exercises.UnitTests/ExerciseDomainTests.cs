@@ -56,4 +56,38 @@ public sealed class ExerciseDomainTests
 
         Assert.Equal(ownerUserId, definition.OwnerUserId);
     }
+
+    [Fact]
+    public void PublishedSetShouldRetainPinnedOrderAndRejectSecondPublication()
+    {
+        var now = new DateTimeOffset(2026, 8, 15, 12, 0, 0, TimeSpan.Zero);
+        var set = ExerciseSet.CreateDraft(
+            Guid.NewGuid(),
+            "Quick practice",
+            description: null,
+            now);
+        var first = ExerciseSetItem.Create(set.Id, Guid.NewGuid(), position: 1);
+        var second = ExerciseSetItem.Create(set.Id, Guid.NewGuid(), position: 2);
+
+        set.Publish(now);
+
+        Assert.Equal(ExerciseSetStatus.Published, set.Status);
+        Assert.Equal(1, first.Position);
+        Assert.Equal(2, second.Position);
+        Assert.Throws<InvalidOperationException>(() => set.Publish(now.AddMinutes(1)));
+    }
+
+    [Fact]
+    public void AttemptStartedFromSetShouldRetainSourceItem()
+    {
+        var setItemId = Guid.NewGuid();
+
+        var attempt = ExerciseAttempt.StartFromSet(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            setItemId,
+            DateTimeOffset.UtcNow);
+
+        Assert.Equal(setItemId, attempt.ExerciseSetItemId);
+    }
 }

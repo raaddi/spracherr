@@ -217,6 +217,39 @@ public sealed class IdentityAndLanguagesFlowTests(PostgresWebApplicationFactory 
             new SubmitExerciseAttemptRequest(answerDocument.RootElement.Clone()));
         Assert.Equal(HttpStatusCode.Conflict, repeatedSubmission.StatusCode);
 
+        var setCatalog = await client.GetFromJsonAsync<ExerciseSetCatalogResponse>(
+            "/api/v1/exercise-sets/");
+        var practiceSet = Assert.Single(
+            Assert.IsType<ExerciseSetCatalogResponse>(setCatalog).Items);
+        Assert.Equal(3, practiceSet.Exercises.Count);
+        var translationItem = Assert.Single(
+            practiceSet.Exercises,
+            item => item.TypeKey == "translation");
+
+        var startTranslation = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-sets/{practiceSet.SetId}/items/{translationItem.ItemId}/attempts",
+            new { });
+        Assert.Equal(HttpStatusCode.OK, startTranslation.StatusCode);
+        var translationPlay = await startTranslation.Content
+            .ReadFromJsonAsync<ExercisePlayResponse>();
+        Assert.NotNull(translationPlay);
+        Assert.Equal(translationItem.ExerciseVersionId, translationPlay.ExerciseVersionId);
+        Assert.False(translationPlay.Payload.TryGetProperty("acceptedAnswers", out _));
+
+        using var translationAnswer = JsonDocument.Parse(
+            """{ "answer": "Ona codziennie chodzi do szkoły!" }""");
+        var submitTranslation = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-attempts/{translationPlay.AttemptId}/submit",
+            new SubmitExerciseAttemptRequest(translationAnswer.RootElement.Clone()));
+        var translationResult = await submitTranslation.Content
+            .ReadFromJsonAsync<ExerciseResultResponse>();
+        Assert.True(translationResult?.IsCorrect);
+        Assert.Equal(10, translationResult?.AwardedPoints);
+
         using var forbiddenDefinition = JsonDocument.Parse(
             """
             {
@@ -240,6 +273,16 @@ public sealed class IdentityAndLanguagesFlowTests(PostgresWebApplicationFactory 
                 "Choose.",
                 forbiddenDefinition.RootElement.Clone()));
         Assert.Equal(HttpStatusCode.Forbidden, forbiddenAuthoring.StatusCode);
+
+        var forbiddenSetAuthoring = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/exercise-authoring/sets",
+            new CreateExerciseSetRequest(
+                "Unauthorized set",
+                null,
+                [exerciseResult!.ExerciseVersionId]));
+        Assert.Equal(HttpStatusCode.Forbidden, forbiddenSetAuthoring.StatusCode);
 
         using var missingTokenRequest = JsonContent.Create(new UpdateProfileRequest("No CSRF", "UTC"));
         using var rejected = await client.PutAsync("/api/v1/profile/", missingTokenRequest);
@@ -382,6 +425,43 @@ public sealed class IdentityAndLanguagesFlowTests(PostgresWebApplicationFactory 
         Assert.True(newResult?.IsCorrect);
         Assert.Equal(9, newResult?.AwardedPoints);
         Assert.Equal(secondDraft.ExerciseVersionId, newResult?.ExerciseVersionId);
+
+        var setTitle = $"Versioned set {Guid.NewGuid():N}";
+        var createSet = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/exercise-authoring/sets",
+            new CreateExerciseSetRequest(
+                setTitle,
+                "Integration exercise set.",
+                [firstDraft.ExerciseVersionId, secondDraft.ExerciseVersionId]));
+        Assert.Equal(HttpStatusCode.Created, createSet.StatusCode);
+        var draftSet = await createSet.Content.ReadFromJsonAsync<ExerciseSetAuthoringResponse>();
+        Assert.NotNull(draftSet);
+        Assert.Equal("Draft", draftSet.Status);
+        Assert.Equal(2, draftSet.ExerciseCount);
+
+        var setsBeforePublish = await client.GetFromJsonAsync<ExerciseSetCatalogResponse>(
+            "/api/v1/exercise-sets/");
+        Assert.DoesNotContain(
+            Assert.IsType<ExerciseSetCatalogResponse>(setsBeforePublish).Items,
+            item => item.SetId == draftSet.SetId);
+
+        var publishSet = await SendWithAntiforgeryAsync(
+            client,
+            HttpMethod.Post,
+            $"/api/v1/exercise-authoring/sets/{draftSet.SetId}/publish",
+            new { });
+        Assert.Equal(HttpStatusCode.OK, publishSet.StatusCode);
+
+        var setsAfterPublish = await client.GetFromJsonAsync<ExerciseSetCatalogResponse>(
+            "/api/v1/exercise-sets/");
+        var publishedSet = Assert.Single(
+            Assert.IsType<ExerciseSetCatalogResponse>(setsAfterPublish).Items,
+            item => item.SetId == draftSet.SetId);
+        Assert.Equal(
+            [firstDraft.ExerciseVersionId, secondDraft.ExerciseVersionId],
+            publishedSet.Exercises.Select(item => item.ExerciseVersionId));
     }
 
     [IntegrationFact]
